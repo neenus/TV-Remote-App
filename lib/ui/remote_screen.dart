@@ -144,6 +144,9 @@ class _RemoteScreenState extends State<RemoteScreen> {
                               letterSpacing: 3,
                               fontSize: 13)),
                     ),
+                    _btn(TvKey.input, const Icon(Icons.input),
+                        glass: true, width: 48, height: 48, radius: 24),
+                    const SizedBox(width: 8),
                     KeyButton(
                       key: const ValueKey('open-keyboard'),
                       enabled: driver.capabilities.typing,

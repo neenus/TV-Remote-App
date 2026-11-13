@@ -76,6 +76,23 @@ void main() {
     });
   }
 
+  testWidgets('tapping_input_sends_input', (tester) async {
+    final d = FakeDriver();
+    await tester.pumpWidget(screen(d));
+    await tester.tap(key(TvKey.input));
+    await tester.pump();
+    expect(d.sent, [TvKey.input]);
+  });
+
+  testWidgets('input_is_disabled_when_the_tv_cannot_do_it', (tester) async {
+    final d = FakeDriver(
+        capabilities: TvCapabilities(TvKey.values.toSet()..remove(TvKey.input)));
+    await tester.pumpWidget(screen(d));
+    await tester.tap(key(TvKey.input));
+    await tester.pump();
+    expect(d.sent, isEmpty);
+  });
+
   testWidgets('media_keys_are_disabled_when_the_tv_cannot_do_them', (tester) async {
     final d = FakeDriver(
         capabilities: TvCapabilities(TvKey.values.toSet()..remove(TvKey.play)));

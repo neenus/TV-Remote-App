@@ -17,4 +17,5 @@ enum TvKey {
   play,
   pause,
   fastForward,
+  input,
 }

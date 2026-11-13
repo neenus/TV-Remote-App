@@ -24,6 +24,10 @@ Test on both an Android phone and an iPhone.
 - [ ] Mute toggles (first press mutes, second unmutes).
 - [ ] Pairing succeeds with the current permission list (includes CONTROL_MOUSE_AND_KEYBOARD). If the TV rejects the manifest or the d-pad never connects, note the TV's exact error text.
 
+**Input button (top of the remote, next to the keyboard icon)**
+- [ ] LG: opens the TV's input list (it needs a new permission, so the TV may ask you to pair again once). Pick an input with the d-pad and OK. Note whether it opens.
+- [ ] Samsung (all three types): opens the TV's source list (sends the Source key). Pick an input with the d-pad and OK.
+
 **Typing**
 - [ ] Open a search box on the TV (e.g. in YouTube or Netflix): the phone shows a "Type on your TV" box with the keyboard.
 - [ ] Typed letters appear in the TV's search field; backspace removes them; Enter submits the search.

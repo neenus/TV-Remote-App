@@ -46,6 +46,7 @@ void main() {
       expect(LegacyKeyMap.key(TvKey.back), 'KEY_RETURN');
       expect(LegacyKeyMap.key(TvKey.volumeUp), 'KEY_VOLUP');
       expect(LegacyKeyMap.key(TvKey.fastForward), 'KEY_FF');
+      expect(LegacyKeyMap.key(TvKey.input), 'KEY_SOURCE');
     });
   });
 

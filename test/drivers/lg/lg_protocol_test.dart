@@ -128,6 +128,18 @@ void main() {
     });
   });
 
+  test('input_opens_the_tvs_input_picker', () {
+    expect(LgKeyMap.uri(TvKey.input), 'ssap://system.launcher/launch');
+    expect(LgKeyMap.payload(TvKey.input), {'id': 'com.webos.app.inputpicker'});
+    expect(LgKeyMap.payload(TvKey.volumeUp), isNull);
+  });
+
+  test('register_requests_the_launch_permission', () {
+    final m = jsonDecode(registerMessage()) as Map;
+    final perms = ((m['payload'] as Map)['manifest'] as Map)['permissions'] as List;
+    expect(perms, contains('LAUNCH'));
+  });
+
   test('media_keys_map_to_media_controls_uris', () {
     expect(LgKeyMap.uri(TvKey.play), 'ssap://media.controls/play');
     expect(LgKeyMap.uri(TvKey.pause), 'ssap://media.controls/pause');

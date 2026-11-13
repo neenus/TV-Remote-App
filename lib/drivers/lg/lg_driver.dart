@@ -273,7 +273,7 @@ class LgDriver implements TvDriver {
     if (pointerName != null) {
       pointer.send(pointerButtonFrame(pointerName));
     } else {
-      main.send(requestMessage('req_${_reqCounter++}', LgKeyMap.uri(key)!));
+      main.send(requestMessage('req_${_reqCounter++}', LgKeyMap.uri(key)!, LgKeyMap.payload(key)));
     }
   }
 

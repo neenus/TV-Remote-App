@@ -49,6 +49,7 @@ class SamsungKeyMap {
         TvKey.play => 'KEY_PLAY',
         TvKey.pause => 'KEY_PAUSE',
         TvKey.fastForward => 'KEY_FF',
+        TvKey.input => 'KEY_SOURCE',
       };
 }
 

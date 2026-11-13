@@ -54,6 +54,7 @@ void main() {
       expect(SamsungKeyMap.key(TvKey.channelUp), 'KEY_CHUP');
       expect(SamsungKeyMap.key(TvKey.mute), 'KEY_MUTE');
       expect(SamsungKeyMap.key(TvKey.volumeDown), 'KEY_VOLDOWN');
+      expect(SamsungKeyMap.key(TvKey.input), 'KEY_SOURCE');
     });
   });
 

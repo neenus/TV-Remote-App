@@ -106,6 +106,15 @@ void main() {
     expect(tv.transports[1].sent.last, 'type:button\nname:MUTE\n\n');
   });
 
+  test('input_key_launches_the_input_picker', () async {
+    final d = build(tv, keys);
+    await d.connect();
+    await d.sendKey(TvKey.input);
+    final m = jsonDecode(tv.main.sent.last) as Map;
+    expect(m['uri'], 'ssap://system.launcher/launch');
+    expect((m['payload'] as Map)['id'], 'com.webos.app.inputpicker');
+  });
+
   test('media_key_uses_media_controls_request', () async {
     final d = build(tv, keys);
     await d.connect();

@@ -11,6 +11,7 @@ const _permissions = [
   'CONTROL_INPUT_MEDIA_PLAYBACK',
   'CONTROL_MOUSE_AND_KEYBOARD',
   'CONTROL_INPUT_TEXT',
+  'LAUNCH',
   'READ_TV_CHANNEL_LIST',
 ];
 
@@ -132,8 +133,13 @@ class LgKeyMap {
         TvKey.pause => 'ssap://media.controls/pause',
         TvKey.rewind => 'ssap://media.controls/rewind',
         TvKey.fastForward => 'ssap://media.controls/fastForward',
+        TvKey.input => 'ssap://system.launcher/launch',
         _ => null,
       };
+
+  /// Extra request data some keys need (the input key opens the TV's input picker).
+  static Map<String, dynamic>? payload(TvKey k) =>
+      k == TvKey.input ? const {'id': 'com.webos.app.inputpicker'} : null;
 
   static String? pointerName(TvKey k) => switch (k) {
         TvKey.up => 'UP',
