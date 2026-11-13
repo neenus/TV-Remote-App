@@ -9,9 +9,17 @@ const _samsungSt = 'urn:samsung.com:device:RemoteControlReceiver:1';
 // Newer Samsung TVs may not answer the legacy search above but do answer DIAL.
 const _dialSt = 'urn:dial-multiscreen-org:service:dial:1';
 
+/// Label for choosing a brand (Add-by-IP).
 String brandLabel(TvBrand b) => switch (b) {
       TvBrand.lg => 'LG',
       TvBrand.samsung => 'Samsung',
+      TvBrand.samsungLegacy => 'Samsung (2015 or older)',
+    };
+
+/// The brand as it appears in a TV's name.
+String brandName(TvBrand b) => switch (b) {
+      TvBrand.lg => 'LG',
+      TvBrand.samsung || TvBrand.samsungLegacy => 'Samsung',
     };
 
 TvDevice? parseSsdpResponse(String raw) {
@@ -38,12 +46,12 @@ TvDevice? parseSsdpResponse(String raw) {
   final id = RegExp(r'uuid:([^:]+)').firstMatch(usn)?.group(1);
   final host = Uri.tryParse(headers['LOCATION'] ?? '')?.host;
   if (id == null || host == null || host.isEmpty) return null;
-  return TvDevice(id: id, name: '${brandLabel(brand)} TV', brand: brand, host: host);
+  return TvDevice(id: id, name: '${brandName(brand)} TV', brand: brand, host: host);
 }
 
 TvDevice manualDevice(String host, {TvBrand brand = TvBrand.lg}) => TvDevice(
     id: 'manual-$host',
-    name: '${brandLabel(brand)} TV ($host)',
+    name: '${brandName(brand)} TV ($host)',
     brand: brand,
     host: host);
 

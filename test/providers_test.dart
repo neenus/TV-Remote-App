@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tv_remote/core/tv_device.dart';
 import 'package:tv_remote/drivers/lg/lg_driver.dart';
 import 'package:tv_remote/drivers/samsung/samsung_driver.dart';
+import 'package:tv_remote/drivers/samsung/samsung_legacy_driver.dart';
 import 'package:tv_remote/providers.dart';
 
 void main() {
@@ -18,5 +19,7 @@ void main() {
     const samsung = TvDevice(id: 'b', name: 'B', brand: TvBrand.samsung, host: 'h');
     expect(make(lg), isA<LgDriver>());
     expect(make(samsung), isA<SamsungDriver>());
+    const legacy = TvDevice(id: 'c', name: 'C', brand: TvBrand.samsungLegacy, host: 'h');
+    expect(make(legacy), isA<SamsungLegacyDriver>());
   });
 }

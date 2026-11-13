@@ -10,6 +10,8 @@ import 'discovery/lg_discovery.dart';
 import 'drivers/lg/lg_driver.dart';
 import 'drivers/lg/transport.dart';
 import 'drivers/samsung/samsung_driver.dart';
+import 'drivers/samsung/samsung_legacy_driver.dart';
+import 'drivers/samsung/tcp_transport.dart';
 import 'storage/tv_repository.dart';
 
 /// Must be overridden in main() with the loaded SharedPreferences instance.
@@ -46,6 +48,7 @@ final driverFactoryProvider = Provider<TvDriver Function(TvDevice)>((ref) {
   return (device) => switch (device.brand) {
         TvBrand.lg => LgDriver(device, keys, WebSocketTransport.new),
         TvBrand.samsung => SamsungDriver(device, keys, WebSocketTransport.new),
+        TvBrand.samsungLegacy => SamsungLegacyDriver(device, TcpTransport.new),
       };
 });
 

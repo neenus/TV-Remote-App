@@ -411,4 +411,22 @@ void main() {
     await tester.pumpAndSettle();
     expect(created?.brand, TvBrand.lg);
   });
+
+  testWidgets('add_dialog_offers_older_samsung', (tester) async {
+    TvDevice? created;
+    await tester.pumpWidget(await app(driver: (d) {
+      created = d;
+      return FakeDriver();
+    }));
+    await tester.pump();
+    await tester.tap(find.text('Add by IP'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Samsung (2015 or older)'));
+    await tester.pump();
+    await tester.enterText(find.byType(TextField).first, '10.0.0.7');
+    await tester.tap(find.text('Connect'));
+    await tester.pumpAndSettle();
+    expect(created?.brand, TvBrand.samsungLegacy);
+    expect(find.byType(RemoteScreen), findsOneWidget);
+  });
 }

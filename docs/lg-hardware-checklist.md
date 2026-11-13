@@ -73,3 +73,26 @@ Unverified on real hardware: the protocol comes from community documentation.
 - [ ] Unplug the TV, then try to connect: a clear error appears within about 10 seconds.
 - [ ] Lock the phone for a minute, unlock, press a key: it reconnects and the key works.
 - [ ] Note the TV model, year and whether the app connected on the secure port or fell back to the plain one.
+
+---
+
+# Samsung 2015 or older (legacy protocol, TCP port 55000)
+
+Unverified on real hardware. The packet formats were checked against the public samsungctl source, but not against a TV.
+
+**Pairing**
+- [ ] Add by IP, choosing "Samsung (2015 or older)" (the scan cannot tell old from new Samsungs).
+- [ ] The first time, the TV shows an Allow / Deny box for "TV Remote". You must press Allow with the TV's own remote.
+- [ ] After allowing, the remote opens. Close the app and reopen: it connects without another prompt (the TV remembers the device).
+- [ ] Deny shows a Retry screen with a message that tells you to choose Allow on the TV.
+
+**Keys**
+- [ ] Up, down, left, right, OK, back, menu, volume, mute, channel work.
+- [ ] Home opens SmartHub (it sends the SmartHub key on these TVs).
+- [ ] Power turns the TV off (these TVs use a different power-off key; power on needs Wake-on-LAN and may not work on this age of TV).
+- [ ] Rewind, play, pause, fast-forward during playback.
+- [ ] Typing is not supported (the keyboard icon is greyed out).
+
+**Resilience**
+- [ ] With the TV unplugged, connecting gives a clear error within about 10 seconds.
+- [ ] Note the TV model, year, and whether it showed the Allow prompt.

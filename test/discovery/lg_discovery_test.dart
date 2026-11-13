@@ -74,4 +74,15 @@ void main() {
         'SERVER: Roku/12.0 UPnP/1.0 Roku/12.0\r\n\r\n';
     expect(parseSsdpResponse(reply), isNull);
   });
+
+  test('older_samsung_manual_device_is_named_samsung', () {
+    final d = manualDevice('10.0.0.7', brand: TvBrand.samsungLegacy);
+    expect(d.brand, TvBrand.samsungLegacy);
+    expect(d.name, 'Samsung TV (10.0.0.7)');
+  });
+
+  test('brand_labels_distinguish_the_older_samsung_option', () {
+    expect(brandLabel(TvBrand.samsung), 'Samsung');
+    expect(brandLabel(TvBrand.samsungLegacy), 'Samsung (2015 or older)');
+  });
 }

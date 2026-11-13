@@ -173,9 +173,12 @@ void main() {
     expect(await keys.read('s-1'), isNull);
   });
 
-  test('unreachable_tv_is_TvConnectionError', () async {
+  test('unreachable_tv_is_TvConnectionError_that_points_to_the_older_option', () async {
     tv.openAlwaysFails = true;
-    await expectLater(build(tv, keys).connect(), throwsA(isA<TvConnectionError>()));
+    await expectLater(
+        build(tv, keys).connect(),
+        throwsA(isA<TvConnectionError>()
+            .having((e) => e.message, 'message', contains('2015 or older'))));
   });
 
   test('falls_back_to_the_plain_port_when_secure_is_unavailable', () async {
