@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../../core/tv_key.dart';
+import '../../core/wake_on_lan.dart';
 
 const _permissions = [
   'CONTROL_POWER',
@@ -108,4 +109,34 @@ class LgKeyMap {
         TvKey.mute => 'MUTE',
         _ => null,
       };
+}
+
+const connectionInfoUri = 'ssap://com.webos.service.connectionmanager/getinfo';
+
+/// Picks the TV's MAC from a connection-info reply. The exact reply shape is
+/// unverified on real hardware, so this is defensive: it returns null rather
+/// than guessing when anything is missing or malformed.
+String? macFromConnectionInfo(Map payload, String host) {
+  final candidates = <Map>[];
+  for (final key in const ['wiredInfo', 'wifiInfo']) {
+    final info = payload[key];
+    if (info is Map && _normalizeMac(info['macAddress']) != null) {
+      candidates.add(info);
+    }
+  }
+  if (candidates.isEmpty) return null;
+  final chosen = candidates.firstWhere((i) => i['ipAddress'] == host,
+      orElse: () => candidates.firstWhere((i) => i['state'] == 'connected',
+          orElse: () => candidates.first));
+  return _normalizeMac(chosen['macAddress']);
+}
+
+String? _normalizeMac(Object? raw) {
+  if (raw is! String) return null;
+  try {
+    magicPacket(raw); // validates the format
+  } on FormatException {
+    return null;
+  }
+  return raw.replaceAll('-', ':').toUpperCase();
 }

@@ -23,6 +23,7 @@ Test on both an Android phone and an iPhone.
 - [ ] Pairing succeeds with the current permission list (includes CONTROL_MOUSE_AND_KEYBOARD). If the TV rejects the manifest or the d-pad never connects, note the TV's exact error text.
 
 **Power and wake**
+- [ ] After the first successful pairing, the TV's MAC is captured automatically (check: power the TV off, then press Power in the app; it should wake without you ever typing a MAC). If it isn't captured, note the TV model and webOS version; the connection-info reply may differ and the parser needs adjusting.
 - [ ] Power turns the TV off.
 - [ ] With the TV off and its MAC saved (Add by IP, MAC field), Power turns it on via Wake-on-LAN.
 - [ ] With no MAC saved and the TV off, Power shows the "No MAC saved" message.

@@ -15,6 +15,12 @@ class FakeTv {
   bool promptOnly = false; // shows the prompt, then never answers
   bool promptThenDeny = false;
   bool pointerError = false;
+  bool macSilent = false;
+  bool macError = false;
+  Map<String, dynamic> macPayload = {
+    'returnValue': true,
+    'wiredInfo': {'macAddress': 'AA:BB:CC:DD:EE:FF', 'ipAddress': 'tv', 'state': 'connected'},
+  };
 
   Transport make() {
     final t = FakeTransport(this);
@@ -87,6 +93,11 @@ class FakeTransport implements Transport {
         }
         push('{"type":"registered","id":"register_0","payload":{"client-key":"${tv.clientKeyToIssue}"}}');
       }
+    } else if (m['type'] == 'request' && m['id'] == 'mac') {
+      if (tv.macSilent) return;
+      push(tv.macError
+          ? '{"type":"error","id":"mac","error":"404 no such service"}'
+          : jsonEncode({'type': 'response', 'id': 'mac', 'payload': tv.macPayload}));
     } else if (m['type'] == 'request' && m['id'] == 'pointer') {
       if (tv.pointerError) {
         push('{"type":"error","id":"pointer","error":"401 insufficient permissions"}');

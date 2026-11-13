@@ -197,4 +197,37 @@ void main() {
     expect(find.text('Enter a valid IP address'), findsOneWidget);
     expect(find.byType(RemoteScreen), findsNothing);
   });
+
+  testWidgets('learns_and_saves_mac_after_connecting', (tester) async {
+    final driver = FakeDriver()..mac = 'AA:BB:CC:DD:EE:FF';
+    await tester.pumpWidget(await app(savedTvs: [saved], driver: (_) => driver));
+    await tester.pump();
+    await tester.tap(find.text('Saved TV'));
+    await tester.pumpAndSettle();
+    final repo = ProviderScope.containerOf(tester.element(find.byType(RemoteScreen)))
+        .read(tvRepositoryProvider);
+    expect(repo.all().single.mac, 'AA:BB:CC:DD:EE:FF');
+  });
+
+  testWidgets('does_not_ask_for_mac_when_already_saved', (tester) async {
+    final driver = FakeDriver()..mac = 'FF:FF:FF:FF:FF:FF';
+    const withMac = TvDevice(
+        id: 's1', name: 'Saved TV', brand: TvBrand.lg, host: '10.0.0.2', mac: 'AA:BB:CC:DD:EE:FF');
+    await tester.pumpWidget(await app(savedTvs: [withMac], driver: (_) => driver));
+    await tester.pump();
+    await tester.tap(find.text('Saved TV'));
+    await tester.pumpAndSettle();
+    expect(driver.macFetches, 0);
+  });
+
+  testWidgets('missing_mac_does_not_break_the_remote', (tester) async {
+    await tester.pumpWidget(await app(savedTvs: [saved])); // FakeDriver.mac == null
+    await tester.pump();
+    await tester.tap(find.text('Saved TV'));
+    await tester.pumpAndSettle();
+    expect(find.byType(RemoteScreen), findsOneWidget);
+    final repo = ProviderScope.containerOf(tester.element(find.byType(RemoteScreen)))
+        .read(tvRepositoryProvider);
+    expect(repo.all().single.mac, isNull);
+  });
 }

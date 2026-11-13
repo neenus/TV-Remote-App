@@ -68,6 +68,7 @@ class _TvSessionState extends ConsumerState<TvSession> {
       await driver.connect();
       if (stale()) return;
       await ref.read(tvRepositoryProvider).save(_device);
+      if (_device.mac == null) unawaited(_learnMac(driver, gen));
     } on TvConnectionError catch (e) {
       if (stale()) return;
       // The TV may have a new DHCP address: look for it once before giving up.
@@ -97,6 +98,17 @@ class _TvSessionState extends ConsumerState<TvSession> {
     } catch (_) {
       if (!stale()) _fail(const TvConnectionError());
     }
+  }
+
+  /// Asks the TV for its MAC once (so Wake-on-LAN works later) and saves it.
+  /// Best effort: any failure leaves the TV as it was.
+  Future<void> _learnMac(TvDriver driver, int gen) async {
+    try {
+      final mac = await driver.fetchMacAddress();
+      if (mac == null || !mounted || gen != _gen) return;
+      _device = _device.copyWith(mac: mac);
+      await ref.read(tvRepositoryProvider).save(_device);
+    } catch (_) {}
   }
 
   void _fail(TvError e) => setState(() {

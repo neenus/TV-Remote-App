@@ -8,6 +8,8 @@ class FakeDriver implements TvDriver {
       : capabilities = capabilities ?? TvCapabilities(TvKey.values.toSet());
 
   final List<TvKey> sent = [];
+  String? mac;
+  int macFetches = 0;
   final _controller = StreamController<TvConnectionState>.broadcast();
 
   @override
@@ -23,6 +25,12 @@ class FakeDriver implements TvDriver {
 
   @override
   Future<void> sendKey(TvKey key) async => sent.add(key);
+
+  @override
+  Future<String?> fetchMacAddress() async {
+    macFetches++;
+    return mac;
+  }
 
   @override
   Future<void> dispose() async {

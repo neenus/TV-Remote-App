@@ -39,6 +39,7 @@ class LgDriver implements TvDriver {
 
   Completer<String>? _registration;
   Completer<String>? _pointerPath;
+  Completer<Map?>? _macReply;
   Timer? _timer;
   bool _usedStoredKey = false;
 
@@ -192,6 +193,12 @@ class LgDriver implements TvDriver {
         if (c != null && !c.isCompleted) {
           c.completeError(TvConnectionError('TV refused the input socket: $error'));
         }
+      case Response(:final id, :final payload) when id == 'mac':
+        final c = _macReply;
+        if (c != null && !c.isCompleted) c.complete(payload);
+      case LgErrorMsg(:final id) when id == 'mac':
+        final c = _macReply;
+        if (c != null && !c.isCompleted) c.complete(null);
       case Response(:final id, :final payload) when id == 'pointer':
         final path = payload['socketPath'];
         final c = _pointerPath;
@@ -242,6 +249,23 @@ class LgDriver implements TvDriver {
       pointer.send(pointerButtonFrame(pointerName));
     } else {
       main.send(requestMessage('req_${_reqCounter++}', LgKeyMap.uri(key)!));
+    }
+  }
+
+  @override
+  Future<String?> fetchMacAddress() async {
+    final main = _main;
+    if (!_alive || main == null) return null;
+    try {
+      final c = Completer<Map?>();
+      _macReply = c;
+      main.send(requestMessage('mac', connectionInfoUri));
+      final payload = await c.future.timeout(connectTimeout, onTimeout: () => null);
+      return payload == null ? null : macFromConnectionInfo(payload, device.host);
+    } catch (_) {
+      return null;
+    } finally {
+      _macReply = null;
     }
   }
 

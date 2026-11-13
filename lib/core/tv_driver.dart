@@ -55,5 +55,9 @@ abstract class TvDriver {
   Stream<TvConnectionState> get state;
   Future<void> connect();
   Future<void> sendKey(TvKey key);
+
+  /// The TV's own MAC address (used for Wake-on-LAN), or null if the TV can't
+  /// say. Best effort: never throws and never opens a new connection.
+  Future<String?> fetchMacAddress();
   Future<void> dispose();
 }

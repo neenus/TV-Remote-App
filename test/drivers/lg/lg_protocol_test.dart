@@ -69,4 +69,37 @@ void main() {
     expect(LgKeyMap.pointerName(TvKey.mute), 'MUTE');
     expect(LgKeyMap.uri(TvKey.volumeUp), 'ssap://audio/volumeUp');
   });
+
+  group('macFromConnectionInfo', () {
+    test('prefers_the_interface_whose_ip_matches_the_tv_host', () {
+      final mac = macFromConnectionInfo({
+        'wiredInfo': {'macAddress': '11:11:11:11:11:11', 'ipAddress': '10.0.0.9'},
+        'wifiInfo': {'macAddress': '22:22:22:22:22:22', 'ipAddress': '10.0.0.5'},
+      }, '10.0.0.5');
+      expect(mac, '22:22:22:22:22:22');
+    });
+
+    test('falls_back_to_connected_interface', () {
+      final mac = macFromConnectionInfo({
+        'wiredInfo': {'macAddress': '11:11:11:11:11:11', 'state': 'disconnected'},
+        'wifiInfo': {'macAddress': '22:22:22:22:22:22', 'state': 'connected'},
+      }, 'unknown-host');
+      expect(mac, '22:22:22:22:22:22');
+    });
+
+    test('normalizes_case_and_dashes', () {
+      expect(
+          macFromConnectionInfo({
+            'wifiInfo': {'macAddress': 'aa-bb-cc-dd-ee-ff'}
+          }, 'h'),
+          'AA:BB:CC:DD:EE:FF');
+    });
+
+    test('returns_null_for_missing_or_invalid_data', () {
+      expect(macFromConnectionInfo({}, 'h'), isNull);
+      expect(macFromConnectionInfo({'wifiInfo': 'oops'}, 'h'), isNull);
+      expect(macFromConnectionInfo({'wifiInfo': {'macAddress': 'nope'}}, 'h'), isNull);
+      expect(macFromConnectionInfo({'wifiInfo': {'macAddress': 42}}, 'h'), isNull);
+    });
+  });
 }

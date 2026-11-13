@@ -17,6 +17,7 @@ LgDriver build(FakeTv tv, MemoryKeyStore keys,
     LgDriver(device, keys, tv.make, connectTimeout: timeout);
 
 void main() {
+  group('mac', macTests);
   late FakeTv tv;
   late MemoryKeyStore keys;
   setUp(() {
@@ -192,6 +193,49 @@ void main() {
         build(tv, keys).connect().timeout(const Duration(milliseconds: 500)),
         throwsA(isA<TvConnectionError>()
             .having((e) => e.message, 'message', contains('401'))));
+  });
+}
+
+void macTests() {
+  late FakeTv tv;
+  late MemoryKeyStore keys;
+  setUp(() {
+    tv = FakeTv();
+    keys = MemoryKeyStore();
+  });
+
+  test('fetch_mac_returns_mac_reported_by_tv', () async {
+    final d = build(tv, keys);
+    await d.connect();
+    expect(await d.fetchMacAddress(), 'AA:BB:CC:DD:EE:FF');
+  });
+
+  test('fetch_mac_requests_connection_info_uri', () async {
+    final d = build(tv, keys);
+    await d.connect();
+    await d.fetchMacAddress();
+    final m = jsonDecode(tv.main.sent.last) as Map;
+    expect(m['uri'], 'ssap://com.webos.service.connectionmanager/getinfo');
+  });
+
+  test('fetch_mac_is_null_when_tv_errors', () async {
+    tv.macError = true;
+    final d = build(tv, keys);
+    await d.connect();
+    expect(await d.fetchMacAddress(), isNull);
+  });
+
+  test('fetch_mac_is_null_when_tv_does_not_answer', () async {
+    tv.macSilent = true;
+    final d = build(tv, keys, timeout: const Duration(milliseconds: 50));
+    await d.connect();
+    expect(await d.fetchMacAddress(), isNull);
+  });
+
+  test('fetch_mac_is_null_when_not_connected_and_does_not_connect', () async {
+    final d = build(tv, keys);
+    expect(await d.fetchMacAddress(), isNull);
+    expect(tv.transports, isEmpty);
   });
 }
 
