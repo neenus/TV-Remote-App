@@ -12,6 +12,7 @@ Test on both an Android phone and an iPhone.
 - [ ] The TV appears in the list within about 4 seconds.
 - [ ] Tapping it shows "Accept the prompt on your TV"; the prompt appears on the TV.
 - [ ] Accepting opens the remote. Force-quit and reopen: reconnects with no new prompt.
+- [ ] "No remote? Use a code instead": the TV shows a code; typing it in the app pairs successfully (this PIN mode is unverified on real TVs; note the TV's behavior if it fails).
 - [ ] Denying the prompt shows a Retry screen; Retry shows the prompt again.
 - [ ] Add by IP (with the TV's IP) works when discovery is skipped.
 

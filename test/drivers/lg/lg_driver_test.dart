@@ -18,6 +18,7 @@ LgDriver build(FakeTv tv, MemoryKeyStore keys,
 
 void main() {
   group('mac', macTests);
+  group('pin', pinTests);
   late FakeTv tv;
   late MemoryKeyStore keys;
   setUp(() {
@@ -193,6 +194,52 @@ void main() {
         build(tv, keys).connect().timeout(const Duration(milliseconds: 500)),
         throwsA(isA<TvConnectionError>()
             .having((e) => e.message, 'message', contains('401'))));
+  });
+}
+
+void pinTests() {
+  late FakeTv tv;
+  late MemoryKeyStore keys;
+  setUp(() {
+    tv = FakeTv();
+    keys = MemoryKeyStore();
+  });
+
+  test('pin_pairing_registers_with_PIN_and_asks_for_the_code', () async {
+    final d = build(tv, keys);
+    final states = <TvConnectionState>[];
+    d.state.listen(states.add);
+    final connecting = d.connect(pinPairing: true);
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect((tv.registerMessages().first['payload'] as Map)['pairingType'], 'PIN');
+    expect(states.last, isA<AwaitingPin>());
+    await d.submitPairingPin('12345678');
+    await connecting;
+    expect(await keys.read('lg-1'), 'abc');
+    expect(states.last, isA<Connected>());
+  });
+
+  test('wrong_pin_fails_pairing_and_stores_nothing', () async {
+    final d = build(tv, keys);
+    final connecting = d.connect(pinPairing: true);
+    final expectation = expectLater(connecting, throwsA(isA<PairingDenied>()));
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    await d.submitPairingPin('00000000');
+    await expectation;
+    expect(await keys.read('lg-1'), isNull);
+  });
+
+  test('submitting_a_pin_when_not_asked_is_ignored', () async {
+    final d = build(tv, keys);
+    await d.submitPairingPin('12345678'); // not connected, no pin requested
+    await d.connect();
+    await d.submitPairingPin('12345678'); // already paired
+  });
+
+  test('stored_key_wins_over_pin_pairing', () async {
+    await keys.write('lg-1', 'abc');
+    await build(tv, keys).connect(pinPairing: true);
+    expect((tv.registerMessages().first['payload'] as Map)['pairingType'], 'PROMPT');
   });
 }
 

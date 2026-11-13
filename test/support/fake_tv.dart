@@ -15,6 +15,7 @@ class FakeTv {
   bool promptOnly = false; // shows the prompt, then never answers
   bool promptThenDeny = false;
   bool pointerError = false;
+  String correctPin = '12345678';
   bool macSilent = false;
   bool macError = false;
   Map<String, dynamic> macPayload = {
@@ -74,6 +75,10 @@ class FakeTransport implements Transport {
     if (m is! Map) return;
     if (m['type'] == 'register') {
       final payload = m['payload'] as Map;
+      if (payload['pairingType'] == 'PIN') {
+        push('{"type":"response","id":"register_0","payload":{"pairingType":"PIN","returnValue":true}}');
+        return;
+      }
       if (tv.promptOnly) {
         push('{"type":"response","id":"register_0","payload":{"pairingType":"PROMPT","returnValue":true}}');
         return;
@@ -93,6 +98,11 @@ class FakeTransport implements Transport {
         }
         push('{"type":"registered","id":"register_0","payload":{"client-key":"${tv.clientKeyToIssue}"}}');
       }
+    } else if (m['type'] == 'request' && m['uri'] == 'ssap://pairing/setPin') {
+      final pin = (m['payload'] as Map)['pin'];
+      push(pin == tv.correctPin
+          ? '{"type":"registered","id":"register_0","payload":{"client-key":"${tv.clientKeyToIssue}"}}'
+          : '{"type":"error","id":"pin","error":"403 wrong pin"}');
     } else if (m['type'] == 'request' && m['id'] == 'mac') {
       if (tv.macSilent) return;
       push(tv.macError

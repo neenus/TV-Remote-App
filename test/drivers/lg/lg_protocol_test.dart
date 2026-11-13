@@ -102,4 +102,29 @@ void main() {
       expect(macFromConnectionInfo({'wifiInfo': {'macAddress': 42}}, 'h'), isNull);
     });
   });
+
+  group('pin pairing', () {
+    test('register_with_pin_asks_for_PIN_pairing', () {
+      final m = jsonDecode(registerMessage(pin: true)) as Map;
+      expect((m['payload'] as Map)['pairingType'], 'PIN');
+    });
+
+    test('register_default_is_PROMPT', () {
+      final m = jsonDecode(registerMessage()) as Map;
+      expect((m['payload'] as Map)['pairingType'], 'PROMPT');
+    });
+
+    test('set_pin_message_shape', () {
+      final m = jsonDecode(setPinMessage('12345678')) as Map;
+      expect(m['type'], 'request');
+      expect(m['uri'], 'ssap://pairing/setPin');
+      expect((m['payload'] as Map)['pin'], '12345678');
+    });
+
+    test('parse_pin_pairing_response', () {
+      final r = parseInbound(
+          '{"type":"response","id":"register_0","payload":{"pairingType":"PIN","returnValue":true}}');
+      expect(r, isA<PinPrompt>());
+    });
+  });
 }

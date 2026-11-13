@@ -22,6 +22,11 @@ class AwaitingPairing extends TvConnectionState {
   const AwaitingPairing();
 }
 
+/// The TV is showing a code on screen; call [TvDriver.submitPairingPin].
+class AwaitingPin extends TvConnectionState {
+  const AwaitingPin();
+}
+
 class Connected extends TvConnectionState {
   const Connected();
 }
@@ -53,7 +58,12 @@ class InvalidClientKey extends TvError {
 abstract class TvDriver {
   TvCapabilities get capabilities;
   Stream<TvConnectionState> get state;
-  Future<void> connect();
+  /// With [pinPairing] the TV shows a code on screen instead of an accept
+  /// prompt (for when you can't press OK on the TV's own remote).
+  Future<void> connect({bool pinPairing = false});
+
+  /// Sends the code the TV is showing. Ignored unless the TV asked for one.
+  Future<void> submitPairingPin(String pin);
   Future<void> sendKey(TvKey key);
 
   /// The TV's own MAC address (used for Wake-on-LAN), or null if the TV can't

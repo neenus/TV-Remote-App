@@ -27,12 +27,26 @@ class _TvSessionState extends ConsumerState<TvSession> {
   bool _everConnected = false;
   bool _refreshed = false;
   bool _searching = false;
+  bool _pinMode = false;
+  final _pinController = TextEditingController();
   int _gen = 0; // bumped by every (re)start and on dispose to drop stale work
 
   @override
   void initState() {
     super.initState();
     _start();
+  }
+
+  void _useCode() {
+    _pinMode = true;
+    _refreshed = false;
+    _start();
+  }
+
+  Future<void> _submitPin() async {
+    final pin = _pinController.text.trim();
+    if (pin.isEmpty) return;
+    await _driver?.submitPairingPin(pin);
   }
 
   void _retry() {
@@ -65,7 +79,7 @@ class _TvSessionState extends ConsumerState<TvSession> {
       });
     });
     try {
-      await driver.connect();
+      await driver.connect(pinPairing: _pinMode);
       if (stale()) return;
       await ref.read(tvRepositoryProvider).save(_device);
       if (_device.mac == null) unawaited(_learnMac(driver, gen));
@@ -130,6 +144,7 @@ class _TvSessionState extends ConsumerState<TvSession> {
   @override
   void dispose() {
     _gen++;
+    _pinController.dispose();
     _sub?.cancel();
     _driver?.dispose();
     super.dispose();
@@ -173,6 +188,25 @@ class _TvSessionState extends ConsumerState<TvSession> {
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Back')),
       ]));
     }
+    if (status is AwaitingPin) {
+      return _message(Column(mainAxisSize: MainAxisSize.min, children: [
+        const Icon(Icons.pin_outlined, size: 40, color: AuroraColors.lilac),
+        const SizedBox(height: 16),
+        const Text('Enter the code shown on your TV', textAlign: TextAlign.center),
+        const SizedBox(height: 20),
+        TextField(
+          controller: _pinController,
+          keyboardType: TextInputType.number,
+          textAlign: TextAlign.center,
+          autofocus: true,
+          style: const TextStyle(fontSize: 24, letterSpacing: 6),
+          onSubmitted: (_) => _submitPin(),
+        ),
+        const SizedBox(height: 20),
+        FilledButton(onPressed: _submitPin, child: const Text('Pair')),
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Back')),
+      ]));
+    }
     return _message(Column(mainAxisSize: MainAxisSize.min, children: [
       const CircularProgressIndicator(),
       const SizedBox(height: 20),
@@ -181,6 +215,11 @@ class _TvSessionState extends ConsumerState<TvSession> {
           : status is AwaitingPairing
               ? 'Accept the prompt on your TV'
               : 'Connecting to ${_device.name}…'),
+      if (status is AwaitingPairing && !_pinMode) ...[
+        const SizedBox(height: 16),
+        TextButton(
+            onPressed: _useCode, child: const Text('No remote? Use a code instead')),
+      ],
     ]));
   }
 }

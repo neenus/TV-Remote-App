@@ -22,7 +22,10 @@ class ScriptedDriver extends FakeDriver {
   ScriptedDriver(this.script);
   final Future<void> Function(ScriptedDriver) script;
   @override
-  Future<void> connect() => script(this);
+  Future<void> connect({bool pinPairing = false}) {
+    lastPinPairing = pinPairing;
+    return script(this);
+  }
 }
 
 Future<Widget> app({
@@ -229,5 +232,57 @@ void main() {
     final repo = ProviderScope.containerOf(tester.element(find.byType(RemoteScreen)))
         .read(tvRepositoryProvider);
     expect(repo.all().single.mac, isNull);
+  });
+
+  testWidgets('no_remote_button_restarts_pairing_with_a_code', (tester) async {
+    final drivers = <ScriptedDriver>[];
+    await tester.pumpWidget(await app(
+        savedTvs: [saved],
+        driver: (_) {
+          final first = drivers.isEmpty;
+          final d = ScriptedDriver((d) async {
+            if (first) {
+              d.emit(const AwaitingPairing());
+              await Completer<void>().future; // user has no remote: never accepts
+            } else {
+              d.emit(const AwaitingPin());
+              await d.pinSubmitted.future;
+              d.emit(const Connected());
+            }
+          });
+          drivers.add(d);
+          return d;
+        }));
+    await tester.pump();
+    await tester.tap(find.text('Saved TV'));
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('Accept the prompt on your TV'), findsOneWidget);
+    await tester.tap(find.text('No remote? Use a code instead'));
+    await tester.pump();
+    await tester.pump();
+    expect(drivers.length, 2);
+    expect(drivers[1].lastPinPairing, isTrue);
+    expect(find.text('Enter the code shown on your TV'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), '12345678');
+    await tester.tap(find.text('Pair'));
+    await tester.pumpAndSettle();
+    expect(drivers[1].submittedPins, ['12345678']);
+    expect(find.byType(RemoteScreen), findsOneWidget);
+  });
+
+  testWidgets('code_screen_ignores_empty_input', (tester) async {
+    final d = ScriptedDriver((d) async {
+      d.emit(const AwaitingPin());
+      await Completer<void>().future;
+    });
+    await tester.pumpWidget(await app(savedTvs: [saved], driver: (_) => d));
+    await tester.pump();
+    await tester.tap(find.text('Saved TV'));
+    await tester.pump();
+    await tester.pump();
+    await tester.tap(find.text('Pair'));
+    await tester.pump();
+    expect(d.submittedPins, isEmpty);
   });
 }

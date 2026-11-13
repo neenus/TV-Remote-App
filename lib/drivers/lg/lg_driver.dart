@@ -42,6 +42,7 @@ class LgDriver implements TvDriver {
   Completer<Map?>? _macReply;
   Timer? _timer;
   bool _usedStoredKey = false;
+  bool _awaitingPin = false;
 
   @override
   TvCapabilities get capabilities => TvCapabilities(TvKey.values.toSet());
@@ -75,12 +76,13 @@ class LgDriver implements TvDriver {
   }
 
   @override
-  Future<void> connect() {
+  Future<void> connect({bool pinPairing = false}) {
     if (_disposed) return Future.error(const TvConnectionError('Driver disposed'));
-    return _connecting ??= _connect().whenComplete(() => _connecting = null);
+    return _connecting ??=
+        _connect(pinPairing).whenComplete(() => _connecting = null);
   }
 
-  Future<void> _connect() async {
+  Future<void> _connect(bool pinPairing) async {
     _emit(const Connecting());
     try {
       await _teardown();
@@ -99,7 +101,7 @@ class LgDriver implements TvDriver {
       String clientKey;
       while (true) {
         try {
-          clientKey = await _register(main, key);
+          clientKey = await _register(main, key, pinPairing);
           break;
         } on _KeyRejected {
           await _deleteKey();
@@ -126,13 +128,14 @@ class LgDriver implements TvDriver {
     }
   }
 
-  Future<String> _register(Transport main, String? key) {
+  Future<String> _register(Transport main, String? key, bool pinPairing) {
     final c = Completer<String>();
     _registration = c;
     _usedStoredKey = key != null;
     _startTimer(connectTimeout, c, const TvConnectionError());
-    main.send(registerMessage(clientKey: key));
+    main.send(registerMessage(clientKey: key, pin: pinPairing && key == null));
     return c.future.whenComplete(() {
+      _awaitingPin = false;
       _timer?.cancel();
       if (identical(_registration, c)) _registration = null;
     });
@@ -182,6 +185,22 @@ class LgDriver implements TvDriver {
         final c = _registration;
         if (c != null && !c.isCompleted) {
           _startTimer(pairingTimeout, c, const PairingDenied('Pairing timed out'));
+        }
+      case PinPrompt():
+        if (_usedStoredKey) {
+          _usedStoredKey = false;
+          unawaited(_deleteKey());
+        }
+        _awaitingPin = true;
+        _emit(const AwaitingPin());
+        final c = _registration;
+        if (c != null && !c.isCompleted) {
+          _startTimer(pairingTimeout, c, const PairingDenied('Pairing timed out'));
+        }
+      case LgErrorMsg(:final id) when id == 'pin':
+        final c = _registration;
+        if (c != null && !c.isCompleted) {
+          c.completeError(const PairingDenied('That code was not accepted'));
         }
       case LgErrorMsg(:final id) when id == 'register_0':
         final c = _registration;
@@ -250,6 +269,13 @@ class LgDriver implements TvDriver {
     } else {
       main.send(requestMessage('req_${_reqCounter++}', LgKeyMap.uri(key)!));
     }
+  }
+
+  @override
+  Future<void> submitPairingPin(String pin) async {
+    final main = _main;
+    if (main == null || !_awaitingPin) return;
+    main.send(setPinMessage(pin));
   }
 
   @override

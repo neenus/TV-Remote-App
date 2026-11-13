@@ -9,6 +9,9 @@ class FakeDriver implements TvDriver {
 
   final List<TvKey> sent = [];
   String? mac;
+  bool lastPinPairing = false;
+  final List<String> submittedPins = [];
+  final pinSubmitted = Completer<String>();
   int macFetches = 0;
   final _controller = StreamController<TvConnectionState>.broadcast();
 
@@ -21,7 +24,16 @@ class FakeDriver implements TvDriver {
   void emit(TvConnectionState s) => _controller.add(s);
 
   @override
-  Future<void> connect() async => emit(const Connected());
+  Future<void> connect({bool pinPairing = false}) async {
+    lastPinPairing = pinPairing;
+    emit(const Connected());
+  }
+
+  @override
+  Future<void> submitPairingPin(String pin) async {
+    submittedPins.add(pin);
+    if (!pinSubmitted.isCompleted) pinSubmitted.complete(pin);
+  }
 
   @override
   Future<void> sendKey(TvKey key) async => sent.add(key);

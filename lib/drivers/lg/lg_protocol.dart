@@ -13,12 +13,12 @@ const _permissions = [
   'READ_TV_CHANNEL_LIST',
 ];
 
-String registerMessage({String? clientKey}) => jsonEncode({
+String registerMessage({String? clientKey, bool pin = false}) => jsonEncode({
       'type': 'register',
       'id': 'register_0',
       'payload': {
         'forcePairing': false,
-        'pairingType': 'PROMPT',
+        'pairingType': pin ? 'PIN' : 'PROMPT',
         'manifest': {
           'manifestVersion': 1,
           'permissions': _permissions,
@@ -35,6 +35,9 @@ String requestMessage(String id, String uri, [Map<String, dynamic>? payload]) =>
       'payload': ?payload,
     });
 
+String setPinMessage(String pin) =>
+    requestMessage('pin', 'ssap://pairing/setPin', {'pin': pin});
+
 String pointerButtonFrame(String name) => 'type:button\nname:$name\n\n';
 
 sealed class LgInbound {
@@ -48,6 +51,11 @@ class Registered extends LgInbound {
 
 class PairingPrompt extends LgInbound {
   const PairingPrompt();
+}
+
+/// The TV is displaying a PIN to be typed into the app.
+class PinPrompt extends LgInbound {
+  const PinPrompt();
 }
 
 class Response extends LgInbound {
@@ -79,6 +87,7 @@ LgInbound? parseInbound(String raw) {
       return key is String ? Registered(key) : null;
     case 'response':
       if (payload['pairingType'] == 'PROMPT') return const PairingPrompt();
+      if (payload['pairingType'] == 'PIN') return const PinPrompt();
       return Response(id, payload);
     case 'error':
       return LgErrorMsg(id, decoded['error']?.toString() ?? 'unknown error');
