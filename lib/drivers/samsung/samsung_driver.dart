@@ -9,6 +9,7 @@ import '../../core/tv_key.dart';
 import '../lg/transport.dart';
 import 'samsung_protocol.dart';
 
+/// The TV refused the token we sent (explicit `ms.channel.unauthorized`).
 class _TokenRejected implements Exception {}
 
 typedef JsonFetcher = Future<Map<String, dynamic>?> Function(Uri uri);
@@ -19,7 +20,10 @@ Future<Map<String, dynamic>?> defaultFetchJson(Uri uri) async {
   try {
     final request = await client.getUrl(uri);
     final response = await request.close().timeout(const Duration(seconds: 3));
-    final body = await response.transform(utf8.decoder).join();
+    final body = await response
+        .transform(utf8.decoder)
+        .join()
+        .timeout(const Duration(seconds: 3));
     final json = jsonDecode(body);
     return json is Map<String, dynamic> ? json : null;
   } catch (_) {
@@ -28,6 +32,10 @@ Future<Map<String, dynamic>?> defaultFetchJson(Uri uri) async {
     client.close(force: true);
   }
 }
+
+const _deniedMessage = 'The TV denied the request. If no prompt appears when you retry, '
+    'on the TV open Settings > General > External Device Manager > '
+    'Device Connection Manager > Device List and allow or remove "TV Remote".';
 
 /// Samsung Tizen (2016+) remote control over the WebSocket remote API.
 class SamsungDriver implements TvDriver {
@@ -54,20 +62,26 @@ class SamsungDriver implements TvDriver {
   Completer<String?>? _ready;
   Timer? _timer;
   bool _usedToken = false;
+  bool _preferPlain = false; // this TV only answered on the plain port last time
   bool _disposed = false;
 
+  // Typing is not available through this driver yet.
   @override
-  TvCapabilities get capabilities => TvCapabilities(TvKey.values.toSet());
+  TvCapabilities get capabilities =>
+      TvCapabilities(TvKey.values.toSet(), typing: false);
 
   @override
   Stream<TvConnectionState> get state => _states.stream;
 
-  // Samsung's remote API has no typing channel in this driver yet.
   @override
   Stream<bool> get keyboardFocus => const Stream<bool>.empty();
 
   void _emit(TvConnectionState s) {
     if (!_states.isClosed) _states.add(s);
+  }
+
+  void _checkDisposed() {
+    if (_disposed) throw const TvConnectionError('Driver disposed');
   }
 
   // Token storage must never be able to break control of the TV.
@@ -109,10 +123,13 @@ class SamsungDriver implements TvDriver {
           issued = await _handshake(token);
           break;
         } on _TokenRejected {
+          // Close the refused socket before starting over, so it can't interfere.
+          await _teardown();
           await _deleteToken();
           token = null;
         }
       }
+      _checkDisposed();
       if (issued != null) await _writeToken(issued);
       _emit(const Connected());
     } catch (e) {
@@ -123,37 +140,60 @@ class SamsungDriver implements TvDriver {
     }
   }
 
-  /// Tries the secure port first, then the plain one (older TVs).
-  Future<Transport> _open(String? token) async {
-    for (final secure in const [true, false]) {
+  /// Opens the remote-control socket. With a stored token only the secure port
+  /// is tried (that TV has already proven it speaks it); otherwise the plain
+  /// port is the fallback for older TVs. Returns whether the secure port is used.
+  Future<bool> _open(String? token) async {
+    final order = token != null
+        ? const [true]
+        : (_preferPlain ? const [false, true] : const [true, false]);
+    for (final secure in order) {
+      _checkDisposed();
       final transport = _makeTransport();
+      _transport = transport; // visible to _teardown/dispose while still opening
       try {
         await transport
             .open(samsungUrl(device.host, secure: secure, token: token))
             .timeout(connectTimeout);
-        return transport;
-      } catch (_) {
+        _checkDisposed();
+        _preferPlain = !secure;
+        return secure;
+      } catch (e) {
         try {
           await transport.close();
         } catch (_) {}
+        if (identical(_transport, transport)) _transport = null;
+        if (e is TvError) rethrow;
       }
     }
     throw const TvConnectionError();
   }
 
   Future<String?> _handshake(String? token) async {
-    final transport = await _open(token);
-    _transport = transport;
+    final secure = await _open(token);
+    final transport = _transport;
+    if (transport == null) throw const TvConnectionError();
     final ready = Completer<String?>();
     _ready = ready;
-    _usedToken = token != null;
-    _sub = transport.messages.listen(_onMessage, onDone: _onClosed);
-    if (token == null) {
+    final useToken = secure && token != null;
+    _usedToken = useToken;
+    _sub = transport.messages.listen(
+      (m) => _onMessage(transport, m),
+      onDone: () => _onClosed(transport),
+    );
+    if (!useToken) {
       // No token yet: the TV is showing its "Allow" prompt.
       _emit(const AwaitingPairing());
       _startTimer(pairingTimeout, ready, const PairingDenied('Pairing timed out'));
     } else {
-      _startTimer(connectTimeout, ready, _TokenRejected());
+      // A slow TV, or one that wants us to confirm again: keep the same socket
+      // and keep the token, but tell the user a prompt may be waiting.
+      _timer?.cancel();
+      _timer = Timer(connectTimeout, () {
+        if (ready.isCompleted) return;
+        _emit(const AwaitingPairing());
+        _startTimer(pairingTimeout, ready, const PairingDenied('Pairing timed out'));
+      });
     }
     try {
       return await ready.future;
@@ -175,7 +215,8 @@ class SamsungDriver implements TvDriver {
     if (c != null && !c.isCompleted) c.completeError(error);
   }
 
-  void _onMessage(String raw) {
+  void _onMessage(Transport from, String raw) {
+    if (!identical(from, _transport)) return; // a socket we already let go of
     final msg = parseSamsungInbound(raw);
     if (msg == null) return;
     final c = _ready;
@@ -184,15 +225,14 @@ class SamsungDriver implements TvDriver {
       case SamsungConnected(:final token):
         c.complete(token);
       case SamsungUnauthorized():
-        c.completeError(_usedToken ? _TokenRejected() : const PairingDenied());
+        c.completeError(_usedToken ? _TokenRejected() : const PairingDenied(_deniedMessage));
       case SamsungTimeout():
-        c.completeError(
-            _usedToken ? _TokenRejected() : const PairingDenied('The TV prompt timed out'));
+        c.completeError(const PairingDenied('The prompt on the TV timed out'));
     }
   }
 
-  void _onClosed() {
-    if (_disposed) return;
+  void _onClosed(Transport from) {
+    if (_disposed || !identical(from, _transport)) return;
     _failPending(const TvConnectionError('Connection to the TV was lost'));
     _emit(const Disconnected());
     unawaited(_teardown());

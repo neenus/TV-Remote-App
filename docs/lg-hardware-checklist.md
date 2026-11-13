@@ -54,16 +54,16 @@ Report failures with the TV model, webOS version and phone OS.
 Unverified on real hardware: the protocol comes from community documentation.
 
 **Pairing**
-- [ ] Add the TV by IP (choose Samsung), or find it in the scan (it should appear within about 4 seconds).
+- [ ] Add the TV by IP (choose Samsung), or find it in the scan (it should appear within about 4 seconds). If the scan misses it, note the model and year.
 - [ ] The app shows "Accept the prompt on your TV". The TV shows an "Allow" box for "TV Remote". You must press Allow on the TV's own remote (Samsung has no on-screen code option). If you have no remote, note this; the TV's menu may let you disable the prompt (Device Connection Manager / access notification), which is worth trying.
 - [ ] After allowing, the remote opens. Force-quit and reopen: it reconnects without a new prompt (the token was saved).
-- [ ] Pressing Deny shows a Retry screen; Retry shows the prompt again.
+- [ ] Pressing Deny shows a Retry screen. Samsung TVs may remember a denied device and not prompt again; if so the app says to open Settings > General > External Device Manager > Device Connection Manager > Device List and allow or remove "TV Remote". Note what your TV does.
 
 **Keys**
 - [ ] Up, down, left, right, OK, back, home, menu all work.
 - [ ] Volume up/down, mute, channel up/down work; holding volume repeats.
 - [ ] Rewind, play, pause, fast-forward work during playback.
-- [ ] The typing panel does not work on Samsung yet (the app says so); note whether the TV's own on-screen keyboard works with the d-pad.
+- [ ] The keyboard icon is greyed out on Samsung (typing isn't supported yet); note whether the TV's own on-screen keyboard works with the d-pad.
 
 **Power and wake**
 - [ ] Power turns the TV off.

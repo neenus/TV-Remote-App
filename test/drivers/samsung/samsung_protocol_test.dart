@@ -100,6 +100,19 @@ void main() {
           'AA:BB:CC:DD:EE:FF');
     });
 
+    test('wired_tv_returns_null_because_wifi_mac_would_be_the_wrong_interface', () {
+      expect(
+          macFromSamsungDeviceInfo({
+            'device': {'wifiMac': 'aa:bb:cc:dd:ee:ff', 'networkType': 'wired'}
+          }),
+          isNull);
+      expect(
+          macFromSamsungDeviceInfo({
+            'device': {'wifiMac': 'aa:bb:cc:dd:ee:ff', 'networkType': 'wireless'}
+          }),
+          'AA:BB:CC:DD:EE:FF');
+    });
+
     test('returns_null_for_missing_or_invalid', () {
       expect(macFromSamsungDeviceInfo({}), isNull);
       expect(macFromSamsungDeviceInfo({'device': 'x'}), isNull);

@@ -54,4 +54,24 @@ void main() {
     expect(s.name, 'Samsung TV (10.0.0.7)');
     expect(manualDevice('10.0.0.7').name, 'LG TV (10.0.0.7)');
   });
+
+  test('parse_samsung_dial_reply_by_server_header', () {
+    const reply = 'HTTP/1.1 200 OK\r\n'
+        'LOCATION: http://192.168.1.61:7676/dd.xml\r\n'
+        'ST: urn:dial-multiscreen-org:service:dial:1\r\n'
+        'USN: uuid:dial-1234::urn:dial-multiscreen-org:service:dial:1\r\n'
+        'SERVER: SHP, UPnP/1.0, Samsung UPnP SDK/1.0\r\n\r\n';
+    final d = parseSsdpResponse(reply);
+    expect(d?.brand, TvBrand.samsung);
+    expect(d?.host, '192.168.1.61');
+  });
+
+  test('dial_reply_from_another_brand_is_ignored', () {
+    const reply = 'HTTP/1.1 200 OK\r\n'
+        'LOCATION: http://192.168.1.9:8060/dial/dd.xml\r\n'
+        'ST: urn:dial-multiscreen-org:service:dial:1\r\n'
+        'USN: uuid:roku-1::urn:dial-multiscreen-org:service:dial:1\r\n'
+        'SERVER: Roku/12.0 UPnP/1.0 Roku/12.0\r\n\r\n';
+    expect(parseSsdpResponse(reply), isNull);
+  });
 }

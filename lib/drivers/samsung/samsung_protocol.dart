@@ -96,6 +96,8 @@ SamsungInbound? parseSamsungInbound(String raw) {
 String? macFromSamsungDeviceInfo(Map json) {
   final device = json['device'];
   if (device is! Map) return null;
+  // wifiMac is the wrong interface for Wake-on-LAN when the TV is on Ethernet.
+  if (device['networkType'] == 'wired') return null;
   final mac = device['wifiMac'];
   if (mac is! String) return null;
   try {

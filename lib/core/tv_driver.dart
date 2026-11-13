@@ -1,8 +1,11 @@
 import 'tv_key.dart';
 
 class TvCapabilities {
-  const TvCapabilities(this.keys);
+  const TvCapabilities(this.keys, {this.typing = true});
   final Set<TvKey> keys;
+
+  /// Whether text typed on the phone can reach the TV (the keyboard panel).
+  final bool typing;
   bool supports(TvKey k) => keys.contains(k);
 }
 
@@ -76,7 +79,8 @@ abstract class TvDriver {
   Future<void> sendEnter();
 
   /// The TV's own MAC address (used for Wake-on-LAN), or null if the TV can't
-  /// say. Best effort: never throws and never opens a new connection.
+  /// say. Best effort: never throws and never opens a new remote-control connection
+  /// (a driver may make a plain HTTP request).
   Future<String?> fetchMacAddress();
   Future<void> dispose();
 }

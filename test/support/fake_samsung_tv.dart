@@ -14,6 +14,9 @@ class FakeSamsungTv {
   bool ignoreStoredToken = false; // says nothing when a token is presented
   bool secureFails = false; // wss:8002 not available
   bool openAlwaysFails = false;
+  bool closeAfterUnauthorized = false; // TV drops the socket after refusing it
+  bool sendTimeOut = false; // TV reports its prompt timed out
+  Duration openDelay = Duration.zero; // slow to open
 
   Transport make() {
     final t = FakeSamsungTransport(this);
@@ -51,6 +54,7 @@ class FakeSamsungTransport implements Transport {
   @override
   Future<void> open(Uri uri) async {
     tv.openedUris.add(uri);
+    if (tv.openDelay > Duration.zero) await Future<void>.delayed(tv.openDelay);
     if (tv.openAlwaysFails ||
         (uri.scheme == 'wss' && tv.secureFails)) {
       throw Exception('connection refused');
@@ -59,10 +63,15 @@ class FakeSamsungTransport implements Transport {
     _open = true;
     final hasToken = uri.queryParameters.containsKey('token');
     Timer(const Duration(milliseconds: 10), () {
-      if (tv.deny) {
+      if (tv.sendTimeOut) {
+        push('{"event":"ms.channel.timeOut"}');
+      } else if (tv.deny) {
         push('{"event":"ms.channel.unauthorized"}');
       } else if (hasToken && tv.rejectStoredToken) {
         push('{"event":"ms.channel.unauthorized"}');
+        if (tv.closeAfterUnauthorized) {
+          Timer(const Duration(milliseconds: 5), closeFromRemote);
+        }
       } else if (hasToken && tv.ignoreStoredToken) {
         // silence
       } else if (tv.holdAllow && !hasToken) {

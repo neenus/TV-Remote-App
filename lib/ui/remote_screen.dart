@@ -146,7 +146,7 @@ class _RemoteScreenState extends State<RemoteScreen> {
                     ),
                     KeyButton(
                       key: const ValueKey('open-keyboard'),
-                      enabled: true,
+                      enabled: driver.capabilities.typing,
                       width: 48,
                       height: 48,
                       radius: 24,

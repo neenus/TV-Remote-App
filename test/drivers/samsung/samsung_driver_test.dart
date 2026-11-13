@@ -74,11 +74,96 @@ void main() {
     expect(await keys.read('s-1'), '12345678');
   });
 
-  test('token_ignored_by_tv_times_out_then_retries_without_a_token', () async {
+  test('rejected_socket_is_closed_and_cannot_disturb_the_new_connection', () async {
+    await keys.write('s-1', 'old');
+    tv.rejectStoredToken = true;
+    final d = build(tv, keys);
+    final states = <TvConnectionState>[];
+    d.state.listen(states.add);
+    await d.connect();
+    expect(tv.transports[0].isOpen, isFalse);
+    tv.transports[0].closeFromRemote();
+    await Future<void>.delayed(const Duration(milliseconds: 30));
+    expect(states.last, isA<Connected>());
+    await d.sendKey(TvKey.volumeUp);
+    expect(tv.transports[1].sent.last, samsungKeyMessage('KEY_VOLUP'));
+  });
+
+  test('tv_dropping_the_rejected_socket_does_not_abort_the_new_prompt', () async {
+    await keys.write('s-1', 'old');
+    tv.rejectStoredToken = true;
+    tv.closeAfterUnauthorized = true;
+    tv.holdAllow = true;
+    final connecting = build(tv, keys).connect();
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    tv.accept();
+    await connecting.timeout(const Duration(seconds: 1));
+    expect(await keys.read('s-1'), '12345678');
+  });
+
+  test('slow_tv_with_a_stored_token_keeps_its_socket_and_token_while_waiting', () async {
     await keys.write('s-1', 'old');
     tv.ignoreStoredToken = true;
-    await build(tv, keys, timeout: const Duration(milliseconds: 80)).connect();
-    expect(tv.openedUris.last.queryParameters.containsKey('token'), isFalse);
+    final d = build(tv, keys, timeout: const Duration(milliseconds: 80));
+    final states = <TvConnectionState>[];
+    d.state.listen(states.add);
+    final connecting = d.connect();
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+    expect(states.any((s) => s is AwaitingPairing), isTrue);
+    expect(tv.transports.length, 1);
+    expect(await keys.read('s-1'), 'old');
+    tv.accept();
+    await connecting.timeout(const Duration(seconds: 1));
+    expect(await keys.read('s-1'), '12345678');
+    expect(tv.transports.length, 1);
+  });
+
+  test('stored_token_is_not_deleted_when_the_secure_port_is_unreachable', () async {
+    await keys.write('s-1', 'good');
+    tv.secureFails = true;
+    await expectLater(build(tv, keys).connect(), throwsA(isA<TvConnectionError>()));
+    expect(await keys.read('s-1'), 'good');
+    expect(tv.openedUris.every((u) => u.scheme == 'wss'), isTrue);
+  });
+
+  test('remembers_that_only_the_plain_port_works', () async {
+    tv.secureFails = true;
+    final d = build(tv, keys);
+    await d.connect();
+    tv.transports.last.closeFromRemote();
+    await Future<void>.delayed(Duration.zero);
+    tv.openedUris.clear();
+    await d.sendKey(TvKey.volumeUp);
+    expect(tv.openedUris.first.scheme, 'ws');
+  });
+
+  test('disposing_while_the_socket_is_opening_ends_connect_and_closes_the_socket', () async {
+    tv.openDelay = const Duration(milliseconds: 100);
+    final d = build(tv, keys);
+    final pending = expectLater(d.connect(), throwsA(isA<TvConnectionError>()));
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    await d.dispose();
+    await pending.timeout(const Duration(seconds: 1));
+    await Future<void>.delayed(const Duration(milliseconds: 150));
+    expect(tv.transports.every((t) => !t.isOpen), isTrue);
+  });
+
+  test('prompt_timeout_event_is_PairingDenied_and_stores_nothing', () async {
+    tv.sendTimeOut = true;
+    await expectLater(build(tv, keys).connect(), throwsA(isA<PairingDenied>()));
+    expect(await keys.read('s-1'), isNull);
+  });
+
+  test('denied_message_says_where_to_allow_the_device_on_the_tv', () async {
+    tv.deny = true;
+    await expectLater(
+        build(tv, keys).connect(),
+        throwsA(isA<PairingDenied>()
+            .having((e) => e.message, 'message', contains('Device Connection Manager'))));
+  });
+
+  test('samsung_reports_typing_as_unsupported', () {
+    expect(build(tv, keys).capabilities.typing, isFalse);
   });
 
   test('unanswered_prompt_times_out_as_PairingDenied', () async {

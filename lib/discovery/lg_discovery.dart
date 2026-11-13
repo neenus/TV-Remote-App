@@ -6,6 +6,8 @@ import '../core/tv_device.dart';
 
 const _lgSt = 'urn:lge-com:service:webos-second-screen:1';
 const _samsungSt = 'urn:samsung.com:device:RemoteControlReceiver:1';
+// Newer Samsung TVs may not answer the legacy search above but do answer DIAL.
+const _dialSt = 'urn:dial-multiscreen-org:service:dial:1';
 
 String brandLabel(TvBrand b) => switch (b) {
       TvBrand.lg => 'LG',
@@ -25,7 +27,10 @@ TvDevice? parseSsdpResponse(String raw) {
   final TvBrand brand;
   if (st.contains('lge-com') || usn.contains('lge-com')) {
     brand = TvBrand.lg;
-  } else if (st.contains('samsung.com') || usn.contains('samsung.com')) {
+  } else if (st.contains('samsung.com') ||
+      usn.contains('samsung.com') ||
+      (st.contains('dial-multiscreen') &&
+          (headers['SERVER'] ?? '').toLowerCase().contains('samsung'))) {
     brand = TvBrand.samsung;
   } else {
     return null;
@@ -53,9 +58,10 @@ Stream<TvDevice> discoverTvs(
     final dg = socket.receive();
     if (dg == null) return;
     final d = parseSsdpResponse(utf8.decode(dg.data, allowMalformed: true));
-    if (d != null && seen.add(d.id)) controller.add(d);
+    // One TV can answer several searches with different ids: dedupe by address.
+    if (d != null && seen.add(d.host)) controller.add(d);
   });
-  for (final st in const [_lgSt, _samsungSt]) {
+  for (final st in const [_lgSt, _samsungSt, _dialSt]) {
     final request = 'M-SEARCH * HTTP/1.1\r\n'
         'HOST: 239.255.255.250:1900\r\n'
         'MAN: "ssdp:discover"\r\n'

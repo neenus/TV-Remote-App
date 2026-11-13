@@ -131,6 +131,15 @@ void main() {
       expect(find.text('Type on your TV'), findsNothing);
     });
 
+    testWidgets('keyboard_button_does_nothing_when_the_tv_cannot_type', (tester) async {
+      final d = FakeDriver(
+          capabilities: TvCapabilities(TvKey.values.toSet(), typing: false));
+      await tester.pumpWidget(screen(d));
+      await tester.tap(find.byKey(const Key('open-keyboard')));
+      await tester.pumpAndSettle();
+      expect(find.text('Type on your TV'), findsNothing);
+    });
+
     testWidgets('keyboard_button_opens_it_manually', (tester) async {
       await tester.pumpWidget(screen(FakeDriver()));
       await tester.tap(find.byKey(const Key('open-keyboard')));
