@@ -134,4 +134,46 @@ void main() {
     expect(LgKeyMap.uri(TvKey.rewind), 'ssap://media.controls/rewind');
     expect(LgKeyMap.uri(TvKey.fastForward), 'ssap://media.controls/fastForward');
   });
+
+  group('remote keyboard', () {
+    test('subscribe_message_shape', () {
+      final m = jsonDecode(subscribeMessage('kb', keyboardUri)) as Map;
+      expect(m['type'], 'subscribe');
+      expect(m['id'], 'kb');
+      expect(m['uri'], 'ssap://com.webos.service.ime/registerRemoteKeyboard');
+    });
+
+    test('text_messages_use_the_ime_service', () {
+      final ins = jsonDecode(insertTextMessage('t1', 'hi')) as Map;
+      expect(ins['uri'], 'ssap://com.webos.service.ime/insertText');
+      expect((ins['payload'] as Map)['text'], 'hi');
+      expect((ins['payload'] as Map)['replace'], 0);
+      final del = jsonDecode(deleteCharactersMessage('t2', 3)) as Map;
+      expect(del['uri'], 'ssap://com.webos.service.ime/deleteCharacters');
+      expect((del['payload'] as Map)['count'], 3);
+      final enter = jsonDecode(enterKeyMessage('t3')) as Map;
+      expect(enter['uri'], 'ssap://com.webos.service.ime/sendEnterKey');
+    });
+
+    test('parse_keyboard_focus_true_and_false', () {
+      final on = parseInbound(
+          '{"type":"response","id":"kb","payload":{"currentWidget":{"focus":true},"returnValue":true}}');
+      expect(on, isA<KeyboardState>());
+      expect((on as KeyboardState).focused, isTrue);
+      final off = parseInbound(
+          '{"type":"response","id":"kb","payload":{"currentWidget":{"focus":false}}}');
+      expect((off as KeyboardState).focused, isFalse);
+    });
+
+    test('keyboard_reply_without_widget_is_not_a_focus_event', () {
+      final r = parseInbound('{"type":"response","id":"kb","payload":{"returnValue":true}}');
+      expect(r, isNot(isA<KeyboardState>()));
+    });
+
+    test('register_requests_text_input_permission', () {
+      final m = jsonDecode(registerMessage()) as Map;
+      final perms = ((m['payload'] as Map)['manifest'] as Map)['permissions'] as List;
+      expect(perms, contains('CONTROL_INPUT_TEXT'));
+    });
+  });
 }

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../core/tv_device.dart';
+import '../discovery/discovery_state.dart';
 import '../providers.dart';
 import 'add_tv_dialog.dart';
 import 'aurora_background.dart';
@@ -62,7 +63,9 @@ class _TvPickerScreenState extends ConsumerState<TvPickerScreen> {
     final savedIds = savedTvs.map((d) => d.id).toSet();
     final savedHosts = savedTvs.map((d) => d.host).toSet();
     // A TV added by IP has a different id than its SSDP uuid, so match on host too.
-    final found = (ref.watch(discoveredTvsProvider).value ?? const <TvDevice>[])
+    final discovery = ref.watch(discoveredTvsProvider).value ??
+        const DiscoveryState([], scanning: true);
+    final found = discovery.tvs
         .where((d) => !savedIds.contains(d.id) && !savedHosts.contains(d.host))
         .toList();
     return Scaffold(
@@ -75,17 +78,33 @@ class _TvPickerScreenState extends ConsumerState<TvPickerScreen> {
                 const Expanded(
                     child: Text('Your TVs',
                         style: TextStyle(fontSize: 26, fontWeight: FontWeight.w600))),
-                IconButton(
-                    tooltip: 'Rescan',
-                    onPressed: () => ref.invalidate(discoveredTvsProvider),
-                    icon: const Icon(Icons.refresh)),
+                if (discovery.scanning)
+                  const Padding(
+                    padding: EdgeInsets.all(14),
+                    child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2)),
+                  )
+                else
+                  IconButton(
+                      tooltip: 'Rescan',
+                      onPressed: () => ref.invalidate(discoveredTvsProvider),
+                      icon: const Icon(Icons.refresh)),
               ]),
               const SizedBox(height: 16),
               Expanded(
                 child: (savedTvs.isEmpty && found.isEmpty)
-                    ? const Center(
-                        child: Text('No TVs found. Enter an IP address.',
-                            style: TextStyle(color: AuroraColors.textSecondary)))
+                    ? Center(
+                        child: discovery.scanning
+                            ? const Column(mainAxisSize: MainAxisSize.min, children: [
+                                CircularProgressIndicator(),
+                                SizedBox(height: 20),
+                                Text('Searching for TVs on your Wi-Fi…',
+                                    style: TextStyle(color: AuroraColors.textSecondary)),
+                              ])
+                            : const Text('No TVs found. Enter an IP address.',
+                                style: TextStyle(color: AuroraColors.textSecondary)))
                     : ListView(children: [
                         for (final d in savedTvs) _tile(d, saved: true),
                         for (final d in found) _tile(d),

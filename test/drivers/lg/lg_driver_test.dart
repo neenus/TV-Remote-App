@@ -19,6 +19,7 @@ LgDriver build(FakeTv tv, MemoryKeyStore keys,
 void main() {
   group('mac', macTests);
   group('pin', pinTests);
+  group('keyboard', keyboardTests);
   late FakeTv tv;
   late MemoryKeyStore keys;
   setUp(() {
@@ -202,6 +203,73 @@ void main() {
         build(tv, keys).connect().timeout(const Duration(milliseconds: 500)),
         throwsA(isA<TvConnectionError>()
             .having((e) => e.message, 'message', contains('401'))));
+  });
+}
+
+void keyboardTests() {
+  late FakeTv tv;
+  late MemoryKeyStore keys;
+  setUp(() {
+    tv = FakeTv();
+    keys = MemoryKeyStore();
+  });
+
+  Map lastRequest() => jsonDecode(tv.main.sent.last) as Map;
+
+  test('subscribes_to_remote_keyboard_after_connect', () async {
+    await build(tv, keys).connect();
+    final subs = tv.main.sent.map((s) => jsonDecode(s) as Map).where((m) =>
+        m['type'] == 'subscribe' &&
+        m['uri'] == 'ssap://com.webos.service.ime/registerRemoteKeyboard');
+    expect(subs.length, 1);
+  });
+
+  test('keyboard_focus_events_are_forwarded', () async {
+    final d = build(tv, keys);
+    final events = <bool>[];
+    d.keyboardFocus.listen(events.add);
+    await d.connect();
+    tv.main.push('{"type":"response","id":"kb","payload":{"currentWidget":{"focus":true}}}');
+    tv.main.push('{"type":"response","id":"kb","payload":{"currentWidget":{"focus":false}}}');
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(events, [true, false]);
+  });
+
+  test('keyboard_closes_when_the_connection_drops', () async {
+    final d = build(tv, keys);
+    final events = <bool>[];
+    d.keyboardFocus.listen(events.add);
+    await d.connect();
+    tv.main.closeFromRemote();
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(events, [false]);
+  });
+
+  test('send_text_inserts_text', () async {
+    final d = build(tv, keys);
+    await d.connect();
+    await d.sendText('hi');
+    expect(lastRequest()['uri'], 'ssap://com.webos.service.ime/insertText');
+    expect((lastRequest()['payload'] as Map)['text'], 'hi');
+  });
+
+  test('delete_text_sends_count', () async {
+    final d = build(tv, keys);
+    await d.connect();
+    await d.deleteText(2);
+    expect(lastRequest()['uri'], 'ssap://com.webos.service.ime/deleteCharacters');
+    expect((lastRequest()['payload'] as Map)['count'], 2);
+  });
+
+  test('send_enter_sends_enter_key', () async {
+    final d = build(tv, keys);
+    await d.connect();
+    await d.sendEnter();
+    expect(lastRequest()['uri'], 'ssap://com.webos.service.ime/sendEnterKey');
+  });
+
+  test('typing_while_disconnected_is_a_connection_error', () async {
+    await expectLater(build(tv, keys).sendText('x'), throwsA(isA<TvConnectionError>()));
   });
 }
 

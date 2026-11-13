@@ -66,6 +66,15 @@ abstract class TvDriver {
   Future<void> submitPairingPin(String pin);
   Future<void> sendKey(TvKey key);
 
+  /// True while the TV has a text field focused (e.g. a search box), false when
+  /// it loses focus or the connection drops.
+  Stream<bool> get keyboardFocus;
+
+  /// Typing into the focused text field on the TV.
+  Future<void> sendText(String text);
+  Future<void> deleteText(int count);
+  Future<void> sendEnter();
+
   /// The TV's own MAC address (used for Wake-on-LAN), or null if the TV can't
   /// say. Best effort: never throws and never opens a new connection.
   Future<String?> fetchMacAddress();

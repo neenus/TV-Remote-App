@@ -30,6 +30,7 @@ class LgDriver implements TvDriver {
   final Duration pairingTimeout;
 
   final _states = StreamController<TvConnectionState>.broadcast();
+  final _keyboard = StreamController<bool>.broadcast();
   Transport? _main;
   Transport? _pointer;
   StreamSubscription<String>? _mainSub;
@@ -119,6 +120,8 @@ class LgDriver implements TvDriver {
         throw const TvConnectionError('Could not open the TV input socket');
       }
       _pointer = pointer;
+      // Ask the TV to tell us when a text field is focused (best effort).
+      main.send(subscribeMessage('kb', keyboardUri));
       _emit(const Connected());
     } catch (e) {
       final error = e is TvError ? e : const TvConnectionError();
@@ -212,6 +215,8 @@ class LgDriver implements TvDriver {
         if (c != null && !c.isCompleted) {
           c.completeError(TvConnectionError('TV refused the input socket: $error'));
         }
+      case KeyboardState(:final focused):
+        if (!_keyboard.isClosed) _keyboard.add(focused);
       case Response(:final id, :final payload) when id == 'mac':
         final c = _macReply;
         if (c != null && !c.isCompleted) c.complete(payload);
@@ -233,6 +238,7 @@ class LgDriver implements TvDriver {
   void _onClosed() {
     if (_disposed) return;
     _failPending(const TvConnectionError('Connection to the TV was lost'));
+    if (!_keyboard.isClosed) _keyboard.add(false);
     _emit(const Disconnected());
     unawaited(_teardown());
   }
@@ -272,6 +278,25 @@ class LgDriver implements TvDriver {
   }
 
   @override
+  Stream<bool> get keyboardFocus => _keyboard.stream;
+
+  void _ime(String Function(String id) build) {
+    final main = _main;
+    if (main == null || !main.isOpen) throw const TvConnectionError('Not connected to the TV');
+    main.send(build('txt_${_reqCounter++}'));
+  }
+
+  @override
+  Future<void> sendText(String text) async => _ime((id) => insertTextMessage(id, text));
+
+  @override
+  Future<void> deleteText(int count) async =>
+      _ime((id) => deleteCharactersMessage(id, count));
+
+  @override
+  Future<void> sendEnter() async => _ime(enterKeyMessage);
+
+  @override
   Future<void> submitPairingPin(String pin) async {
     final main = _main;
     if (main == null || !_awaitingPin) return;
@@ -302,5 +327,6 @@ class LgDriver implements TvDriver {
     await _teardown();
     // Not awaited: close() on a broadcast stream with no listeners never completes.
     unawaited(_states.close());
+    unawaited(_keyboard.close());
   }
 }

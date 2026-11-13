@@ -5,6 +5,7 @@ import 'core/key_store.dart';
 import 'core/tv_device.dart';
 import 'core/tv_driver.dart';
 import 'core/wake_on_lan.dart';
+import 'discovery/discovery_state.dart';
 import 'discovery/lg_discovery.dart';
 import 'drivers/lg/lg_driver.dart';
 import 'drivers/lg/transport.dart';
@@ -19,14 +20,19 @@ final tvRepositoryProvider =
 
 final keyStoreProvider = Provider<KeyStore>((ref) => SecureKeyStore());
 
-/// Accumulates TVs found on the network; emits an empty list first.
-final discoveredTvsProvider = StreamProvider.autoDispose<List<TvDevice>>((ref) async* {
+/// Accumulates TVs found on the network and reports when the scan finishes.
+final discoveredTvsProvider = StreamProvider.autoDispose<DiscoveryState>((ref) async* {
   final list = <TvDevice>[];
-  yield list;
-  await for (final d in discoverLg()) {
-    list.add(d);
-    yield List.of(list);
+  yield const DiscoveryState([], scanning: true);
+  try {
+    await for (final d in discoverLg()) {
+      list.add(d);
+      yield DiscoveryState(List.of(list), scanning: true);
+    }
+  } catch (_) {
+    // Scan unavailable (e.g. no network permission): finish with what we have.
   }
+  yield DiscoveryState(List.of(list));
 });
 
 /// Re-scan used to find a saved TV whose IP changed.

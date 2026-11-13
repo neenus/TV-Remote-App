@@ -9,7 +9,7 @@ Test on both an Android phone and an iPhone.
 
 **Discovery and pairing**
 - [ ] iPhone: the Local Network permission prompt appears on first launch; allow it.
-- [ ] The TV appears in the list within about 4 seconds.
+- [ ] While scanning, the list shows a spinner and "Searching for TVs on your Wi-Fi…"; the TV appears within about 4 seconds; with no TVs, the empty message appears only after the scan ends.
 - [ ] Tapping it shows "Accept the prompt on your TV"; the prompt appears on the TV.
 - [ ] Accepting opens the remote. Force-quit and reopen: reconnects with no new prompt.
 - [ ] "No remote? Use a code instead": the TV shows a code; typing it in the app pairs successfully (this PIN mode is unverified on real TVs; note the TV's behavior if it fails).
@@ -23,6 +23,13 @@ Test on both an Android phone and an iPhone.
 - [ ] Rewind, play, pause and fast-forward work while a video is playing (these depend on the app playing it; note which apps respond).
 - [ ] Mute toggles (first press mutes, second unmutes).
 - [ ] Pairing succeeds with the current permission list (includes CONTROL_MOUSE_AND_KEYBOARD). If the TV rejects the manifest or the d-pad never connects, note the TV's exact error text.
+
+**Typing**
+- [ ] Open a search box on the TV (e.g. in YouTube or Netflix): the phone shows a "Type on your TV" box with the keyboard.
+- [ ] Typed letters appear in the TV's search field; backspace removes them; Enter submits the search.
+- [ ] The box closes by itself when the TV's text field loses focus.
+- [ ] The keyboard icon at the top of the remote opens the box manually.
+- [ ] After updating the app, pairing may be asked for again (a new permission was added); note what the TV shows.
 
 **Power and wake**
 - [ ] After the first successful pairing, the TV's MAC is captured automatically (check: power the TV off, then press Power in the app; it should wake without you ever typing a MAC). If it isn't captured, note the TV model and webOS version; the connection-info reply may differ and the parser needs adjusting.

@@ -10,6 +10,7 @@ const _permissions = [
   'CONTROL_INPUT_JOYSTICK',
   'CONTROL_INPUT_MEDIA_PLAYBACK',
   'CONTROL_MOUSE_AND_KEYBOARD',
+  'CONTROL_INPUT_TEXT',
   'READ_TV_CHANNEL_LIST',
 ];
 
@@ -35,6 +36,20 @@ String requestMessage(String id, String uri, [Map<String, dynamic>? payload]) =>
       'payload': ?payload,
     });
 
+const keyboardUri = 'ssap://com.webos.service.ime/registerRemoteKeyboard';
+const _imeBase = 'ssap://com.webos.service.ime';
+
+String subscribeMessage(String id, String uri) =>
+    jsonEncode({'type': 'subscribe', 'id': id, 'uri': uri});
+
+String insertTextMessage(String id, String text) =>
+    requestMessage(id, '$_imeBase/insertText', {'text': text, 'replace': 0});
+
+String deleteCharactersMessage(String id, int count) =>
+    requestMessage(id, '$_imeBase/deleteCharacters', {'count': count});
+
+String enterKeyMessage(String id) => requestMessage(id, '$_imeBase/sendEnterKey');
+
 String setPinMessage(String pin) =>
     requestMessage('pin', 'ssap://pairing/setPin', {'pin': pin});
 
@@ -56,6 +71,12 @@ class PairingPrompt extends LgInbound {
 /// The TV is displaying a PIN to be typed into the app.
 class PinPrompt extends LgInbound {
   const PinPrompt();
+}
+
+/// The TV focused or unfocused a text field (reply to the keyboard subscription).
+class KeyboardState extends LgInbound {
+  const KeyboardState(this.focused);
+  final bool focused;
 }
 
 class Response extends LgInbound {
@@ -86,6 +107,10 @@ LgInbound? parseInbound(String raw) {
       final key = payload['client-key'];
       return key is String ? Registered(key) : null;
     case 'response':
+      if (id == 'kb') {
+        final widget = payload['currentWidget'];
+        return widget is Map ? KeyboardState(widget['focus'] == true) : null;
+      }
       if (payload['pairingType'] == 'PROMPT') return const PairingPrompt();
       if (payload['pairingType'] == 'PIN') return const PinPrompt();
       return Response(id, payload);

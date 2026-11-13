@@ -9,6 +9,7 @@ import 'package:tv_remote/app.dart';
 import 'package:tv_remote/core/fake_driver.dart';
 import 'package:tv_remote/core/tv_device.dart';
 import 'package:tv_remote/core/tv_driver.dart';
+import 'package:tv_remote/discovery/discovery_state.dart';
 import 'package:tv_remote/discovery/lg_discovery.dart';
 import 'package:tv_remote/providers.dart';
 import 'package:tv_remote/ui/remote_screen.dart';
@@ -33,6 +34,7 @@ Future<Widget> app({
   List<TvDevice> foundTvs = const [],
   TvDriver Function(TvDevice)? driver,
   Stream<TvDevice> Function()? rediscover,
+  Stream<DiscoveryState>? discovery,
   Future<void> Function(String)? wake,
 }) async {
   SharedPreferences.setMockInitialValues({
@@ -42,7 +44,8 @@ Future<Widget> app({
   return ProviderScope(
     overrides: [
       sharedPrefsProvider.overrideWithValue(prefs),
-      discoveredTvsProvider.overrideWith((ref) => Stream.value(foundTvs)),
+      discoveredTvsProvider.overrideWith(
+          (ref) => discovery ?? Stream.value(DiscoveryState(foundTvs))),
       driverFactoryProvider.overrideWithValue(driver ?? (_) => FakeDriver()),
       rediscoverProvider.overrideWithValue(rediscover ?? () => const Stream.empty()),
       wakeOnLanProvider.overrideWithValue(wake ?? (_) async {}),
@@ -284,5 +287,50 @@ void main() {
     await tester.tap(find.text('Pair'));
     await tester.pump();
     expect(d.submittedPins, isEmpty);
+  });
+
+  group('scanning', () {
+    testWidgets('shows_a_searching_state_while_scanning', (tester) async {
+      final scan = StreamController<DiscoveryState>();
+      addTearDown(scan.close);
+      await tester.pumpWidget(await app(discovery: scan.stream));
+      scan.add(const DiscoveryState([], scanning: true));
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('Searching for TVs on your Wi-Fi…'), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsWidgets);
+      expect(find.text('No TVs found. Enter an IP address.'), findsNothing);
+    });
+
+    testWidgets('shows_empty_message_only_after_the_scan_finishes', (tester) async {
+      final scan = StreamController<DiscoveryState>();
+      addTearDown(scan.close);
+      await tester.pumpWidget(await app(discovery: scan.stream));
+      scan.add(const DiscoveryState([], scanning: false));
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('No TVs found. Enter an IP address.'), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+    });
+
+    testWidgets('lists_found_tvs_and_keeps_showing_progress_while_scanning',
+        (tester) async {
+      final scan = StreamController<DiscoveryState>();
+      addTearDown(scan.close);
+      await tester.pumpWidget(await app(discovery: scan.stream));
+      scan.add(const DiscoveryState([found], scanning: true));
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('Found TV'), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    });
+
+    testWidgets('shows_searching_before_the_first_result_arrives', (tester) async {
+      final scan = StreamController<DiscoveryState>();
+      addTearDown(scan.close);
+      await tester.pumpWidget(await app(discovery: scan.stream));
+      await tester.pump();
+      expect(find.text('Searching for TVs on your Wi-Fi…'), findsOneWidget);
+    });
   });
 }

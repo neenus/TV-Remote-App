@@ -8,6 +8,10 @@ class FakeDriver implements TvDriver {
       : capabilities = capabilities ?? TvCapabilities(TvKey.values.toSet());
 
   final List<TvKey> sent = [];
+  final _keyboard = StreamController<bool>.broadcast();
+  final List<String> typed = [];
+  final List<int> deletes = [];
+  int enters = 0;
   String? mac;
   bool lastPinPairing = false;
   final List<String> submittedPins = [];
@@ -39,6 +43,20 @@ class FakeDriver implements TvDriver {
   Future<void> sendKey(TvKey key) async => sent.add(key);
 
   @override
+  Stream<bool> get keyboardFocus => _keyboard.stream;
+
+  void setKeyboardFocus(bool focused) => _keyboard.add(focused);
+
+  @override
+  Future<void> sendText(String text) async => typed.add(text);
+
+  @override
+  Future<void> deleteText(int count) async => deletes.add(count);
+
+  @override
+  Future<void> sendEnter() async => enters++;
+
+  @override
   Future<String?> fetchMacAddress() async {
     macFetches++;
     return mac;
@@ -47,5 +65,6 @@ class FakeDriver implements TvDriver {
   @override
   Future<void> dispose() async {
     unawaited(_controller.close()); // see LgDriver.dispose
+    unawaited(_keyboard.close());
   }
 }
