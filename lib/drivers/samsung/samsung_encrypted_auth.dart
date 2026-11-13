@@ -58,8 +58,16 @@ class SamsungEncryptedAuth {
     final state = RegExp(r'state>([^<>]*)</state>', caseSensitive: false)
         .firstMatch(page.body)
         ?.group(1);
+    if (page.status != 200 || state == null) {
+      throw const TvConnectionError(
+          'The TV has no PIN pairing service here. If this TV is a Samsung from 2014-2015, '
+          'remove it and try another Samsung option when adding it.');
+    }
     if (state == 'stopped') {
-      await _send('POST', _url('/ws/apps/CloudPINPage'), body: 'pin4');
+      final shown = await _send('POST', _url('/ws/apps/CloudPINPage'), body: 'pin4');
+      if (shown.status < 200 || shown.status >= 300) {
+        throw const TvConnectionError('The TV would not show its PIN screen.');
+      }
     }
   }
 
@@ -70,6 +78,9 @@ class SamsungEncryptedAuth {
     final content = '{"auth_Data":{"auth_type":"SPC","GeneratorServerHello":"'
         '${_hex(hello.hello).toUpperCase()}"}}';
     final reply = await _send('POST', _pairingUrl(1), body: content);
+    if (reply.status < 200 || reply.status >= 300) {
+      throw const TvConnectionError('The TV rejected the pairing request. Try again.');
+    }
     final match = RegExp(
       r'request_id.*?(\d).*?GeneratorClientHello.*?:.*?(\d[0-9a-zA-Z]*)',
       caseSensitive: false,

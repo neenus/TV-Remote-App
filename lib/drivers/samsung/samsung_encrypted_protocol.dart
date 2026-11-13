@@ -18,11 +18,12 @@ String? socketIoSessionId(String body) {
 }
 
 /// How long the channel may stay silent before it is considered dead: one and a
-/// half times the server's heartbeat timeout (90 s when it doesn't say).
-Duration socketIoIdleTimeout(String body) {
+/// half times the server's heartbeat timeout, or null when the TV doesn't say
+/// (then it may not heartbeat at all, so silence proves nothing).
+Duration? socketIoIdleTimeout(String body) {
   final parts = body.split(':');
   final seconds = parts.length > 1 ? int.tryParse(parts[1]) : null;
-  if (seconds == null || seconds <= 0) return const Duration(seconds: 90);
+  if (seconds == null || seconds <= 0) return null;
   return Duration(milliseconds: seconds * 1500);
 }
 

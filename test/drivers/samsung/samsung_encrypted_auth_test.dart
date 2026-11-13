@@ -40,6 +40,25 @@ void main() {
       http.failAll = true;
       await expectLater(auth.startPairing(), throwsA(isA<TvConnectionError>()));
     });
+
+    test('a_missing_pin_page_points_to_the_other_samsung_options', () async {
+      http.pageStatus = 404;
+      await expectLater(
+          auth.startPairing(),
+          throwsA(isA<TvConnectionError>()
+              .having((e) => e.message, 'message', contains('another Samsung option'))));
+      expect(http.where('POST', '/ws/apps/CloudPINPage'), isEmpty);
+    });
+
+    test('a_pin_page_reply_without_a_state_is_not_trusted', () async {
+      http.omitState = true;
+      await expectLater(auth.startPairing(), throwsA(isA<TvConnectionError>()));
+    });
+
+    test('a_refused_pin_screen_request_is_an_error', () async {
+      http.pagePostStatus = 500;
+      await expectLater(auth.startPairing(), throwsA(isA<TvConnectionError>()));
+    });
   });
 
   group('trying a PIN', () {
@@ -67,6 +86,11 @@ void main() {
 
     test('unreachable_tv_is_a_connection_error', () async {
       http.failAll = true;
+      await expectLater(auth.tryPin('1234'), throwsA(isA<TvConnectionError>()));
+    });
+
+    test('an_http_error_on_the_pin_step_is_not_reported_as_a_wrong_code', () async {
+      http.step1Status = 500;
       await expectLater(auth.tryPin('1234'), throwsA(isA<TvConnectionError>()));
     });
   });

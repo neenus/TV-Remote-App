@@ -106,6 +106,29 @@ void main() {
     test('unreachable_tv_is_a_connection_error', () async {
       http.failAll = true;
       await expectLater(build().connect(), throwsA(isA<TvConnectionError>()));
+      expect(http.where('DELETE', '/ws/apps/CloudPINPage/run'), isNotEmpty,
+          reason: 'any failure must try to close a PIN screen that may be showing');
+    });
+
+    test('a_missing_pairing_service_fails_without_asking_for_a_code', () async {
+      http.pageStatus = 404;
+      final d = build();
+      final states = <TvConnectionState>[];
+      d.state.listen(states.add);
+      await expectLater(d.connect(), throwsA(isA<TvConnectionError>()));
+      expect(states.any((s) => s is AwaitingPin), isFalse);
+    });
+
+    test('shows_progress_once_the_code_is_taken', () async {
+      final d = build();
+      final states = <TvConnectionState>[];
+      d.state.listen(states.add);
+      final connecting = d.connect();
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      await d.submitPairingPin('1234');
+      await connecting;
+      await Future<void>.delayed(Duration.zero);
+      expect(states.map((s) => s.runtimeType), [Connecting, AwaitingPin, Connecting, Connected]);
     });
 
     test('submitting_a_pin_when_not_asked_is_ignored', () async {
@@ -237,6 +260,19 @@ void main() {
       expect(sio.transports.last.sent.last, keyFrame(TvKey.volumeUp, 'KEY_VOLUP'));
     });
 
+    test('no_watchdog_until_the_tv_shows_it_sends_heartbeats', () async {
+      http.sioBody = 'SID123'; // the handshake gives no heartbeat timeout
+      final d = build(idle: const Duration(milliseconds: 100));
+      final states = <TvConnectionState>[];
+      d.state.listen(states.add);
+      await d.connect();
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      expect(states.last, isA<Connected>(), reason: 'a quiet TV must not be dropped');
+      sio.transports.first.push('2::'); // now we know it heartbeats: watch for silence
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      expect(states.last, isA<Disconnected>());
+    });
+
     test('heartbeats_keep_the_channel_alive', () async {
       final d = build(idle: const Duration(milliseconds: 100));
       final states = <TvConnectionState>[];
@@ -262,12 +298,26 @@ void main() {
       expect(states.last, isA<Failed>());
     });
 
-    test('key_store_failures_do_not_break_pairing', () async {
+    test('key_store_failures_do_not_break_pairing_or_later_reconnects', () async {
       final d = build(store: ThrowingKeyStore());
       final connecting = d.connect();
       await Future<void>.delayed(const Duration(milliseconds: 50));
       await d.submitPairingPin('1234');
       await connecting;
+      sio.transports.first.closeFromRemote();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await d.sendKey(TvKey.volumeUp); // must reuse the credentials held in memory
+      expect(sio.transports.length, 2);
+      expect(http.where('POST', '/ws/apps/CloudPINPage'), hasLength(1), reason: 'no second pairing');
+    });
+
+    test('a_key_press_never_starts_pairing', () async {
+      final d = build(); // nothing saved, never paired
+      await expectLater(
+          d.sendKey(TvKey.volumeUp),
+          throwsA(isA<TvConnectionError>()
+              .having((e) => e.message, 'message', contains('not paired'))));
+      expect(http.requests.where((r) => r.uri.port == 8080), isEmpty);
     });
 
     test('typing_is_not_supported_but_does_not_crash', () async {

@@ -16,8 +16,10 @@ void main() {
       expect(socketIoSessionId(''), isNull);
       expect(socketIoSessionId(':60:60:websocket'), isNull);
       expect(socketIoSessionId('<html>nope</html>'), isNull);
-      expect(socketIoIdleTimeout('ABC123'), const Duration(seconds: 90));
-      expect(socketIoIdleTimeout('ABC123:x:y'), const Duration(seconds: 90));
+      expect(socketIoIdleTimeout('ABC123'), isNull);
+      expect(socketIoIdleTimeout('ABC123:x:y'), isNull);
+      expect(socketIoIdleTimeout('ABC123::60'), isNull);
+      expect(socketIoIdleTimeout('ABC123:0:60'), isNull);
     });
 
     test('urls_and_frames', () {

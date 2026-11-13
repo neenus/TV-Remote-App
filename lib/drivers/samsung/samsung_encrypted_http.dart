@@ -23,11 +23,18 @@ class IoSamsungHttp implements SamsungHttp {
     try {
       final request = await client.openUrl(method, uri).timeout(timeout);
       if (body != null) {
+        // Send a Content-Length instead of chunked encoding: small embedded web
+        // servers on these TVs may not decode chunked request bodies.
+        final bytes = utf8.encode(body);
         request.headers.contentType = ContentType('text', 'plain', charset: 'utf-8');
-        request.write(body);
+        request.contentLength = bytes.length;
+        request.add(bytes);
       }
       final response = await request.close().timeout(timeout);
-      final text = await response.transform(utf8.decoder).join().timeout(timeout);
+      final text = await response
+          .transform(const Utf8Decoder(allowMalformed: true))
+          .join()
+          .timeout(timeout);
       return HttpReply(response.statusCode, text);
     } finally {
       client.close(force: true);

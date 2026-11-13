@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -58,6 +59,7 @@ class _TvSessionState extends ConsumerState<TvSession> {
     final gen = ++_gen;
     bool stale() => !mounted || gen != _gen;
 
+    _pinController.clear();
     final oldSub = _sub, oldDriver = _driver;
     _sub = null;
     _driver = null;
@@ -197,6 +199,7 @@ class _TvSessionState extends ConsumerState<TvSession> {
         TextField(
           controller: _pinController,
           keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           textAlign: TextAlign.center,
           autofocus: true,
           style: const TextStyle(fontSize: 24, letterSpacing: 6),
@@ -204,9 +207,10 @@ class _TvSessionState extends ConsumerState<TvSession> {
         ),
         const SizedBox(height: 20),
         FilledButton(onPressed: _submitPin, child: const Text('Pair')),
-        TextButton(
-            onPressed: () => _usePairingMode(code: false),
-            child: const Text('Accept on the TV instead')),
+        if (driver?.capabilities.pairingChoice ?? false)
+          TextButton(
+              onPressed: () => _usePairingMode(code: false),
+              child: const Text('Accept on the TV instead')),
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Back')),
       ]));
     }
@@ -218,7 +222,7 @@ class _TvSessionState extends ConsumerState<TvSession> {
           : status is AwaitingPairing
               ? 'Accept the prompt on your TV'
               : 'Connecting to ${_device.name}…'),
-      if (status is AwaitingPairing && !_pinMode) ...[
+      if (status is AwaitingPairing && !_pinMode && (driver?.capabilities.pairingChoice ?? false)) ...[
         const SizedBox(height: 16),
         TextButton(
             onPressed: () => _usePairingMode(code: true), child: const Text('No remote? Use a code instead')),

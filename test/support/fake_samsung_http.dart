@@ -15,6 +15,10 @@ class FakeSamsungHttp implements SamsungHttp {
   bool emptyAuthData = false; // the PIN window expired
   bool sioFails = false; // the control port (8000) does not answer
   String sioBody = 'SID123:60:60:websocket,xhr-polling';
+  int pageStatus = 200; // GET of the PIN page
+  int pagePostStatus = 201; // POST that shows the PIN
+  int step1Status = 200;
+  bool omitState = false; // PIN page reply without a <state>
   bool noClientHello = false; // step 1 reply without a hello (wrong PIN on some TVs)
 
   Iterable<RecordedRequest> where(String method, String pathContains) =>
@@ -30,12 +34,14 @@ class FakeSamsungHttp implements SamsungHttp {
       return HttpReply(200, sioBody);
     }
     if (path == '/ws/apps/CloudPINPage' && method == 'GET') {
-      return HttpReply(200,
-          '<?xml version="1.0"?><service><name>CloudPINPage</name><state>$pinPageState</state></service>');
+      return HttpReply(pageStatus,
+          omitState
+              ? '<service><name>CloudPINPage</name></service>'
+              : '<?xml version="1.0"?><service><name>CloudPINPage</name><state>$pinPageState</state></service>');
     }
     if (path == '/ws/apps/CloudPINPage' && method == 'POST') {
       pinPageState = 'running';
-      return const HttpReply(201, '');
+      return HttpReply(pagePostStatus, '');
     }
     if (path == '/ws/apps/CloudPINPage/run' && method == 'DELETE') {
       pinPageState = 'stopped';
@@ -46,6 +52,7 @@ class FakeSamsungHttp implements SamsungHttp {
         case '0':
           return const HttpReply(200, '');
         case '1':
+          if (step1Status != 200) return HttpReply(step1Status, '');
           if (noClientHello) return const HttpReply(200, '{"auth_data":""}');
           return HttpReply(200,
               '{"auth_data":"{\\"auth_Data\\":{\\"auth_type\\":\\"SPC\\",\\"request_id\\":\\"0\\",\\"GeneratorClientHello\\":\\"$clientHello\\"}}"}');

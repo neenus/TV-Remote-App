@@ -10,6 +10,7 @@ import 'package:tv_remote/core/fake_driver.dart';
 import 'package:tv_remote/core/key_store.dart';
 import 'package:tv_remote/core/tv_device.dart';
 import 'package:tv_remote/core/tv_driver.dart';
+import 'package:tv_remote/core/tv_key.dart';
 import 'package:tv_remote/discovery/discovery_state.dart';
 import 'package:tv_remote/discovery/lg_discovery.dart';
 import 'package:tv_remote/providers.dart';
@@ -21,7 +22,7 @@ const found =
     TvDevice(id: 'f1', name: 'Found TV', brand: TvBrand.lg, host: '10.0.0.3');
 
 class ScriptedDriver extends FakeDriver {
-  ScriptedDriver(this.script);
+  ScriptedDriver(this.script, {super.capabilities});
   final Future<void> Function(ScriptedDriver) script;
   @override
   Future<void> connect({bool pinPairing = false}) {
@@ -459,5 +460,65 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Saved TV'), findsNothing);
     expect(await store.read('s1'), isNull);
+  });
+
+  testWidgets('a_code_only_tv_has_no_accept_on_the_tv_switch', (tester) async {
+    final d = ScriptedDriver((d) async {
+      d.emit(const AwaitingPin());
+      await Completer<void>().future;
+    }, capabilities: TvCapabilities(TvKey.values.toSet(), pairingChoice: false));
+    await tester.pumpWidget(await app(savedTvs: [saved], driver: (_) => d));
+    await tester.pump();
+    await tester.tap(find.text('Saved TV'));
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('Enter the code shown on your TV'), findsOneWidget);
+    expect(find.text('Accept on the TV instead'), findsNothing);
+  });
+
+  testWidgets('the_code_box_accepts_digits_only', (tester) async {
+    late ScriptedDriver driver;
+    await tester.pumpWidget(await app(
+        savedTvs: [saved],
+        driver: (_) => driver = ScriptedDriver((d) async {
+              d.emit(const AwaitingPin());
+              await Completer<void>().future;
+            })));
+    await tester.pump();
+    await tester.tap(find.text('Saved TV'));
+    await tester.pump();
+    await tester.pump();
+    await tester.enterText(find.byType(TextField), 'a1 b2');
+    await tester.tap(find.text('Pair'));
+    await tester.pump();
+    expect(driver.submittedPins, ['12']);
+  });
+
+  testWidgets('the_code_box_is_empty_after_retrying', (tester) async {
+    var n = 0;
+    await tester.pumpWidget(await app(
+        savedTvs: [saved],
+        driver: (_) {
+          n++;
+          return ScriptedDriver((d) async {
+            d.emit(const AwaitingPin());
+            if (n == 1) {
+              await d.pinSubmitted.future;
+              throw const PairingDenied('That code was not accepted');
+            }
+            await Completer<void>().future;
+          });
+        }));
+    await tester.pump();
+    await tester.tap(find.text('Saved TV'));
+    await tester.pump();
+    await tester.pump();
+    await tester.enterText(find.byType(TextField), '1234');
+    await tester.tap(find.text('Pair'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Retry'));
+    await tester.pump();
+    await tester.pump();
+    expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, isEmpty);
   });
 }

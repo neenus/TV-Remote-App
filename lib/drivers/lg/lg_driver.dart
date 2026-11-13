@@ -46,7 +46,7 @@ class LgDriver implements TvDriver {
   bool _awaitingPin = false;
 
   @override
-  TvCapabilities get capabilities => TvCapabilities(TvKey.values.toSet());
+  TvCapabilities get capabilities => TvCapabilities(TvKey.values.toSet(), pairingChoice: true);
 
   @override
   Stream<TvConnectionState> get state => _states.stream;

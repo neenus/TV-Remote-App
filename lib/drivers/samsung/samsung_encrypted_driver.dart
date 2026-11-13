@@ -45,6 +45,8 @@ class SamsungEncryptedDriver implements TvDriver {
   Timer? _pinTimer;
   Timer? _idleTimer;
   Duration _idle = const Duration(seconds: 90);
+  bool _watchdogArmed = false;
+  EncryptedCredentials? _creds; // kept in memory so storage trouble can't force a re-pair
   SamsungEncryptedSession? _session;
   bool _disposed = false;
 
@@ -69,7 +71,9 @@ class SamsungEncryptedDriver implements TvDriver {
   Future<EncryptedCredentials?> _readCreds() async {
     try {
       final raw = await _keys.read(device.id);
-      return raw == null ? null : EncryptedCredentials.parse(raw);
+      final c = raw == null ? null : EncryptedCredentials.parse(raw);
+      if (c != null) _creds = c;
+      return c;
     } catch (_) {
       return null;
     }
@@ -92,9 +96,10 @@ class SamsungEncryptedDriver implements TvDriver {
     _emit(const Connecting());
     try {
       await _teardown();
-      var creds = await _readCreds();
+      var creds = _creds ?? await _readCreds();
       if (creds == null) {
         creds = await _pair();
+        _creds = creds;
         await _writeCreds(creds);
       }
       _checkDisposed();
@@ -112,20 +117,20 @@ class SamsungEncryptedDriver implements TvDriver {
   /// Shows a PIN on the TV, waits for the user to type it, and pairs.
   Future<EncryptedCredentials> _pair() async {
     final auth = SamsungEncryptedAuth(device.host, _http);
-    var started = false;
     try {
       await auth.startPairing();
-      started = true;
       _checkDisposed();
       _emit(const AwaitingPin());
       final pin = await _waitForPin();
       _checkDisposed();
+      _emit(const Connecting()); // the code is taken; the next steps take a moment
       if (!await auth.tryPin(pin)) throw const PairingDenied('That code was not accepted');
-      final creds = await auth.finish();
-      _checkDisposed();
-      return creds;
+      // Once paired, keep the result even if we were disposed meanwhile.
+      return await auth.finish();
     } catch (_) {
-      if (started) await auth.closePinPage(); // don't leave the PIN screen up on the TV
+      // Whatever went wrong, don't leave a PIN screen up on the TV (best effort,
+      // harmless if none is showing).
+      await auth.closePinPage();
       rethrow;
     }
   }
@@ -168,7 +173,10 @@ class SamsungEncryptedDriver implements TvDriver {
     }
     final sid = socketIoSessionId(body);
     if (sid == null) throw const TvConnectionError('Unexpected reply from the TV');
-    _idle = _idleOverride ?? socketIoIdleTimeout(body);
+    final advertised = socketIoIdleTimeout(body);
+    _idle = _idleOverride ?? advertised ?? const Duration(seconds: 90);
+    // Only trust silence as a sign of death if the TV said it sends heartbeats.
+    _watchdogArmed = advertised != null;
     _checkDisposed();
 
     final transport = _makeTransport();
@@ -195,6 +203,7 @@ class SamsungEncryptedDriver implements TvDriver {
 
   void _resetIdle() {
     _idleTimer?.cancel();
+    if (!_watchdogArmed) return;
     _idleTimer = Timer(_idle, _onIdle);
   }
 
@@ -211,6 +220,10 @@ class SamsungEncryptedDriver implements TvDriver {
     _resetIdle();
     switch (parseSocketIoFrame(raw)) {
       case SioHeartbeat():
+        if (!_watchdogArmed) {
+          _watchdogArmed = true; // this TV does heartbeat: silence now means trouble
+          _resetIdle();
+        }
         try {
           from.send(socketIoHeartbeat);
         } catch (_) {}
@@ -246,6 +259,10 @@ class SamsungEncryptedDriver implements TvDriver {
   @override
   Future<void> sendKey(TvKey key) async {
     if (!_alive) {
+      // A key press must never start pairing: there'd be no screen to enter a PIN on.
+      if (_creds == null && await _readCreds() == null) {
+        throw const TvConnectionError('This TV is not paired. Remove it and add it again.');
+      }
       final joining = _connecting != null;
       await connect();
       // A reconnect was already underway for an earlier press: drop this one
@@ -290,7 +307,7 @@ class SamsungEncryptedDriver implements TvDriver {
       waiter.completeError(const TvConnectionError('Driver disposed'));
     }
     await _teardown();
-    // Not awaited: close() on a broadcast stream with no listeners never completes.
+    // Not awaited: nothing depends on it finishing.
     unawaited(_states.close());
   }
 }
