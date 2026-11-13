@@ -114,6 +114,55 @@ void main() {
           'AA:BB:CC:DD:EE:FF');
     });
 
+    test('falls_back_to_the_mac_inside_the_device_id', () {
+      // the owner's UN50HU7000: no wifiMac, but the id ends in what looks like the MAC
+      expect(
+          macFromSamsungDeviceInfo({
+            'id': '0c845881-00d2-1000-8d3a-bc1485044349',
+            'device': {
+              'id': '0c845881-00d2-1000-8d3a-bc1485044349',
+              'networkType': 'wireless',
+              'wifiMac': null,
+            }
+          }),
+          'BC:14:85:04:43:49');
+      expect(
+          macFromSamsungDeviceInfo({
+            'device': {'duid': 'uuid:0c845881-00d2-1000-8d3a-bc1485044349'}
+          }),
+          'BC:14:85:04:43:49');
+    });
+
+    test('a_real_wifi_mac_wins_over_the_id', () {
+      expect(
+          macFromSamsungDeviceInfo({
+            'device': {
+              'wifiMac': '11:22:33:44:55:66',
+              'id': '0c845881-00d2-1000-8d3a-bc1485044349'
+            }
+          }),
+          '11:22:33:44:55:66');
+    });
+
+    test('a_wired_tv_uses_the_id_not_the_wifi_mac', () {
+      expect(
+          macFromSamsungDeviceInfo({
+            'device': {
+              'networkType': 'wired',
+              'wifiMac': '11:22:33:44:55:66',
+              'id': '0c845881-00d2-1000-8d3a-bc1485044349'
+            }
+          }),
+          'BC:14:85:04:43:49');
+    });
+
+    test('ids_that_are_not_a_mac_are_ignored', () {
+      for (final id in ['not-a-uuid', '0c845881-00d2-1000-8d3a-000000000000',
+          '0c845881-00d2-1000-8d3a-ffffffffffff', '0c845881-00d2-1000-8d3a-bc14850443', 5]) {
+        expect(macFromSamsungDeviceInfo({'device': {'id': id}}), isNull, reason: '$id');
+      }
+    });
+
     test('returns_null_for_missing_or_invalid', () {
       expect(macFromSamsungDeviceInfo({}), isNull);
       expect(macFromSamsungDeviceInfo({'device': 'x'}), isNull);

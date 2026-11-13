@@ -95,6 +95,38 @@ void main() {
           'AA:BB:CC:DD:EE:FF');
     });
 
+    test('finds_the_mac_whatever_the_tv_calls_the_fields', () {
+      expect(
+          macFromConnectionInfo({
+            'wifi': {'state': 'disconnected', 'macAddress': '11:11:11:11:11:11'},
+            'wired': {'state': 'connected', 'macAddress': '22:22:22:22:22:22'},
+          }, 'h'),
+          '22:22:22:22:22:22');
+      expect(macFromConnectionInfo({'macAddress': 'aa:bb:cc:dd:ee:ff'}, 'h'), 'AA:BB:CC:DD:EE:FF');
+      expect(
+          macFromConnectionInfo({
+            'result': {
+              'network': {'wifiMacAddress': 'aa-bb-cc-dd-ee-ff', 'ipAddress': '10.0.0.5'}
+            }
+          }, '10.0.0.5'),
+          'AA:BB:CC:DD:EE:FF');
+      expect(
+          macFromConnectionInfo({
+            'interfaces': [
+              {'mac': '33:33:33:33:33:33', 'ipAddress': '10.0.0.9'},
+              {'mac_address': '44:44:44:44:44:44', 'ipAddress': '10.0.0.5'},
+            ]
+          }, '10.0.0.5'),
+          '44:44:44:44:44:44');
+    });
+
+    test('ignores_fields_that_only_look_like_mac_names_or_values', () {
+      expect(macFromConnectionInfo({'machine': 'AA:BB:CC:DD:EE:FF'}, 'h'), isNull);
+      expect(macFromConnectionInfo({'macAddress': 'unknown'}, 'h'), isNull);
+      expect(macFromConnectionInfo({'macAddress': 12345}, 'h'), isNull);
+      expect(macFromConnectionInfo({'name': 'AA:BB:CC:DD:EE:FF'}, 'h'), isNull);
+    });
+
     test('returns_null_for_missing_or_invalid_data', () {
       expect(macFromConnectionInfo({}, 'h'), isNull);
       expect(macFromConnectionInfo({'wifiInfo': 'oops'}, 'h'), isNull);

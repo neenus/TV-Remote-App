@@ -159,21 +159,40 @@ class LgKeyMap {
 const connectionInfoUri = 'ssap://com.webos.service.connectionmanager/getinfo';
 
 /// Picks the TV's MAC from a connection-info reply. The exact reply shape is
-/// unverified on real hardware, so this is defensive: it returns null rather
-/// than guessing when anything is missing or malformed.
+/// unverified on real hardware, so this looks anywhere in the reply for a field
+/// named like a MAC address (`macAddress`, `wifiMac`, `mac_address`, ...) holding a
+/// valid MAC, and prefers the network interface that has the address we are
+/// talking to, then one that is connected. It returns null rather than guessing.
 String? macFromConnectionInfo(Map payload, String host) {
-  final candidates = <Map>[];
-  for (final key in const ['wiredInfo', 'wifiInfo']) {
-    final info = payload[key];
-    if (info is Map && _normalizeMac(info['macAddress']) != null) {
-      candidates.add(info);
+  final macKey = RegExp(r'mac(_?address)?$', caseSensitive: false);
+  final found = <({String mac, String? ip, String? state})>[];
+
+  void walk(Object? node) {
+    if (node is Map) {
+      for (final entry in node.entries) {
+        final key = entry.key;
+        final mac = key is String && macKey.hasMatch(key) ? _normalizeMac(entry.value) : null;
+        if (mac != null) {
+          found.add((
+            mac: mac,
+            ip: node['ipAddress']?.toString(),
+            state: node['state']?.toString(),
+          ));
+        } else {
+          walk(entry.value);
+        }
+      }
+    } else if (node is List) {
+      node.forEach(walk);
     }
   }
-  if (candidates.isEmpty) return null;
-  final chosen = candidates.firstWhere((i) => i['ipAddress'] == host,
-      orElse: () => candidates.firstWhere((i) => i['state'] == 'connected',
-          orElse: () => candidates.first));
-  return _normalizeMac(chosen['macAddress']);
+
+  walk(payload);
+  if (found.isEmpty) return null;
+  return found
+      .firstWhere((f) => f.ip == host,
+          orElse: () => found.firstWhere((f) => f.state == 'connected', orElse: () => found.first))
+      .mac;
 }
 
 String? _normalizeMac(Object? raw) {

@@ -93,18 +93,43 @@ SamsungInbound? parseSamsungInbound(String raw) {
   }
 }
 
-/// The TV's Wi-Fi MAC from its device-info reply, or null if missing/invalid.
+/// The TV's MAC from its device-info reply, or null if it can't be found.
+///
+/// Prefers the reported Wi-Fi MAC (not when the TV is on Ethernet: it would be the
+/// wrong interface). Many Samsungs don't report one, but their device id is a UUID
+/// whose last 12 hex digits are the TV's MAC, so that is used as a best-effort
+/// fallback (it may be the other interface on a TV that has both).
 String? macFromSamsungDeviceInfo(Map json) {
   final device = json['device'];
   if (device is! Map) return null;
-  // wifiMac is the wrong interface for Wake-on-LAN when the TV is on Ethernet.
-  if (device['networkType'] == 'wired') return null;
-  final mac = device['wifiMac'];
-  if (mac is! String) return null;
+  if (device['networkType'] != 'wired') {
+    final wifi = _validMac(device['wifiMac']);
+    if (wifi != null) return wifi;
+  }
+  for (final id in [device['id'], device['duid'], json['id']]) {
+    final fromId = _macFromUuid(id);
+    if (fromId != null) return fromId;
+  }
+  return null;
+}
+
+String? _validMac(Object? raw) {
+  if (raw is! String) return null;
   try {
-    magicPacket(mac); // validates the format
+    magicPacket(raw); // validates the format
   } on FormatException {
     return null;
   }
-  return mac.replaceAll('-', ':').toUpperCase();
+  return raw.replaceAll('-', ':').toUpperCase();
+}
+
+String? _macFromUuid(Object? id) {
+  if (id is! String) return null;
+  final m = RegExp(
+          r'^(?:uuid:)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-([0-9a-f]{12})$',
+          caseSensitive: false)
+      .firstMatch(id.trim());
+  final tail = m?.group(1)?.toLowerCase();
+  if (tail == null || tail == '000000000000' || tail == 'ffffffffffff') return null;
+  return [for (var i = 0; i < 12; i += 2) tail.substring(i, i + 2)].join(':').toUpperCase();
 }
