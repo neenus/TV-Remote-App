@@ -27,7 +27,7 @@ class _TvSessionState extends ConsumerState<TvSession> {
   bool _everConnected = false;
   bool _refreshed = false;
   bool _searching = false;
-  bool _pinMode = false;
+  bool _pinMode = true; // pair with an on-screen code by default (no TV remote needed)
   final _pinController = TextEditingController();
   int _gen = 0; // bumped by every (re)start and on dispose to drop stale work
 
@@ -37,8 +37,8 @@ class _TvSessionState extends ConsumerState<TvSession> {
     _start();
   }
 
-  void _useCode() {
-    _pinMode = true;
+  void _usePairingMode({required bool code}) {
+    _pinMode = code;
     _refreshed = false;
     _start();
   }
@@ -171,7 +171,7 @@ class _TvSessionState extends ConsumerState<TvSession> {
     final status = _status;
     if (status is Failed) {
       final error = status.error;
-      final text = error is PairingDenied
+      final text = error is PairingDenied && !_pinMode
           ? 'Pairing was denied. Accept the prompt on your TV to continue.'
           : error is TvError
               ? error.message
@@ -204,6 +204,9 @@ class _TvSessionState extends ConsumerState<TvSession> {
         ),
         const SizedBox(height: 20),
         FilledButton(onPressed: _submitPin, child: const Text('Pair')),
+        TextButton(
+            onPressed: () => _usePairingMode(code: false),
+            child: const Text('Accept on the TV instead')),
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Back')),
       ]));
     }
@@ -218,7 +221,7 @@ class _TvSessionState extends ConsumerState<TvSession> {
       if (status is AwaitingPairing && !_pinMode) ...[
         const SizedBox(height: 16),
         TextButton(
-            onPressed: _useCode, child: const Text('No remote? Use a code instead')),
+            onPressed: () => _usePairingMode(code: true), child: const Text('No remote? Use a code instead')),
       ],
     ]));
   }

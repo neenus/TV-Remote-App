@@ -237,21 +237,28 @@ void main() {
     expect(repo.all().single.mac, isNull);
   });
 
-  testWidgets('no_remote_button_restarts_pairing_with_a_code', (tester) async {
+  testWidgets('pairing_defaults_to_an_on_screen_code', (tester) async {
+    final d = ScriptedDriver((d) async {
+      d.emit(const AwaitingPin());
+      await Completer<void>().future;
+    });
+    await tester.pumpWidget(await app(savedTvs: [saved], driver: (_) => d));
+    await tester.pump();
+    await tester.tap(find.text('Saved TV'));
+    await tester.pump();
+    await tester.pump();
+    expect(d.lastPinPairing, isTrue);
+    expect(find.text('Enter the code shown on your TV'), findsOneWidget);
+  });
+
+  testWidgets('can_switch_between_code_and_accept_pairing', (tester) async {
     final drivers = <ScriptedDriver>[];
     await tester.pumpWidget(await app(
         savedTvs: [saved],
         driver: (_) {
-          final first = drivers.isEmpty;
           final d = ScriptedDriver((d) async {
-            if (first) {
-              d.emit(const AwaitingPairing());
-              await Completer<void>().future; // user has no remote: never accepts
-            } else {
-              d.emit(const AwaitingPin());
-              await d.pinSubmitted.future;
-              d.emit(const Connected());
-            }
+            d.emit(d.lastPinPairing ? const AwaitingPin() : const AwaitingPairing());
+            await Completer<void>().future;
           });
           drivers.add(d);
           return d;
@@ -260,18 +267,55 @@ void main() {
     await tester.tap(find.text('Saved TV'));
     await tester.pump();
     await tester.pump();
-    expect(find.text('Accept the prompt on your TV'), findsOneWidget);
-    await tester.tap(find.text('No remote? Use a code instead'));
+    expect(find.text('Enter the code shown on your TV'), findsOneWidget);
+
+    await tester.tap(find.text('Accept on the TV instead'));
     await tester.pump();
     await tester.pump();
     expect(drivers.length, 2);
-    expect(drivers[1].lastPinPairing, isTrue);
+    expect(drivers[1].lastPinPairing, isFalse);
+    expect(find.text('Accept the prompt on your TV'), findsOneWidget);
+
+    await tester.tap(find.text('No remote? Use a code instead'));
+    await tester.pump();
+    await tester.pump();
+    expect(drivers.length, 3);
+    expect(drivers[2].lastPinPairing, isTrue);
     expect(find.text('Enter the code shown on your TV'), findsOneWidget);
+  });
+
+  testWidgets('entering_the_code_pairs_and_opens_the_remote', (tester) async {
+    late ScriptedDriver driver;
+    await tester.pumpWidget(await app(
+        savedTvs: [saved],
+        driver: (_) => driver = ScriptedDriver((d) async {
+              d.emit(const AwaitingPin());
+              await d.pinSubmitted.future;
+              d.emit(const Connected());
+            })));
+    await tester.pump();
+    await tester.tap(find.text('Saved TV'));
+    await tester.pump();
+    await tester.pump();
     await tester.enterText(find.byType(TextField), '12345678');
     await tester.tap(find.text('Pair'));
     await tester.pumpAndSettle();
-    expect(drivers[1].submittedPins, ['12345678']);
+    expect(driver.submittedPins, ['12345678']);
     expect(find.byType(RemoteScreen), findsOneWidget);
+  });
+
+  testWidgets('wrong_code_failure_says_the_code_was_not_accepted', (tester) async {
+    await tester.pumpWidget(await app(
+        savedTvs: [saved],
+        driver: (_) => ScriptedDriver((d) async {
+              d.emit(Failed(const PairingDenied('That code was not accepted')));
+              throw const PairingDenied('That code was not accepted');
+            })));
+    await tester.pump();
+    await tester.tap(find.text('Saved TV'));
+    await tester.pumpAndSettle();
+    expect(find.text('That code was not accepted'), findsOneWidget);
+    expect(find.text('Retry'), findsOneWidget);
   });
 
   testWidgets('code_screen_ignores_empty_input', (tester) async {

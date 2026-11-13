@@ -10,11 +10,15 @@ class KeyboardSheet extends StatefulWidget {
     required this.onInsert,
     required this.onDelete,
     required this.onEnter,
+    this.showHint = false,
   });
 
   final void Function(String text) onInsert;
   final void Function(int count) onDelete;
   final VoidCallback onEnter;
+
+  /// Shown when the TV hasn't reported a text field (typing may not reach it).
+  final bool showHint;
 
   @override
   State<KeyboardSheet> createState() => _KeyboardSheetState();
@@ -49,6 +53,15 @@ class _KeyboardSheetState extends State<KeyboardSheet> {
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             const Text('Type on your TV',
                 style: TextStyle(fontSize: 16, color: AuroraColors.textSecondary)),
+            if (widget.showHint) ...[
+              const SizedBox(height: 8),
+              const Text(
+                "The TV hasn't reported a text field. Some apps draw their own keyboard, "
+                'and typing here may not reach them; use the d-pad on the TV\'s keyboard instead.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12, color: AuroraColors.magenta),
+              ),
+            ],
             const SizedBox(height: 12),
             TextField(
               controller: _controller,

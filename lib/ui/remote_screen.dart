@@ -31,6 +31,7 @@ class RemoteScreen extends StatefulWidget {
 class _RemoteScreenState extends State<RemoteScreen> {
   StreamSubscription<bool>? _keyboardSub;
   bool _sheetOpen = false;
+  bool _tvHasTextField = false;
 
   TvDriver get driver => widget.driver;
 
@@ -39,6 +40,7 @@ class _RemoteScreenState extends State<RemoteScreen> {
     super.initState();
     // The TV tells us when a text field (e.g. search) gets focus.
     _keyboardSub = driver.keyboardFocus.listen((focused) {
+      _tvHasTextField = focused;
       if (focused) {
         _openKeyboard();
       } else {
@@ -61,6 +63,7 @@ class _RemoteScreenState extends State<RemoteScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => KeyboardSheet(
+        showHint: !_tvHasTextField,
         onInsert: (t) => _run(() => driver.sendText(t)),
         onDelete: (n) => _run(() => driver.deleteText(n)),
         onEnter: () => _run(driver.sendEnter),
