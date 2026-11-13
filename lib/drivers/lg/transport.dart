@@ -23,7 +23,7 @@ class WebSocketTransport implements Transport {
 
   @override
   Future<void> open(Uri uri) async {
-    final client = HttpClient()..badCertificateCallback = (_, __, ___) => true;
+    final client = HttpClient()..badCertificateCallback = (_, _, _) => true;
     final ws = await WebSocket.connect(uri.toString(), customClient: client);
     _ws = ws;
     ws.listen(
