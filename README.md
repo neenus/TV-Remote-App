@@ -1,17 +1,25 @@
-# tv_remote
+# TV Remote App
 
-A new Flutter project.
+A free, open-source universal Wi-Fi remote for smart TVs, for Android and iOS (Flutter). No ads, no tracking, no paywall.
 
-## Getting Started
+**Status:** early development. LG webOS TVs (2018 or newer) come first; Roku, Samsung and Android/Google TV are planned. Nothing has been verified on real TVs yet; see `docs/lg-hardware-checklist.md`.
 
-This project is a starting point for a Flutter application.
+## Docs
+- Design: `docs/superpowers/specs/2026-11-13-tv-remote-design.md`
+- Implementation plan: `docs/superpowers/plans/2026-11-13-foundation-and-lg.md`
+- Privacy policy: `docs/PRIVACY.md`
 
-A few resources to get you started if this is your first Flutter project:
+## Development
+```
+flutter pub get
+flutter test
+flutter analyze
+```
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+## License
+Licensed under either of
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE))
+- MIT license ([LICENSE-MIT](LICENSE-MIT))
+
+at your option.
