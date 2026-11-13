@@ -21,7 +21,7 @@ String registerMessage({String? clientKey}) => jsonEncode({
           'manifestVersion': 1,
           'permissions': _permissions,
         },
-        if (clientKey != null) 'client-key': clientKey,
+        'client-key': ?clientKey,
       },
     });
 
@@ -30,7 +30,7 @@ String requestMessage(String id, String uri, [Map<String, dynamic>? payload]) =>
       'type': 'request',
       'id': id,
       'uri': uri,
-      if (payload != null) 'payload': payload,
+      'payload': ?payload,
     });
 
 String pointerButtonFrame(String name) => 'type:button\nname:$name\n\n';
