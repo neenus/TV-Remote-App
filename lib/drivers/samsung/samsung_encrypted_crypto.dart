@@ -15,7 +15,6 @@ const _transKey = '6c9474469ddf7578f3e5ad8a4c703d99';
 const _prime =
     'b361eb0ab01c3439f2c16ffda7b05e3e320701ebee3e249123c3586765fd5bf6c1dfa88bb6bb5da3fde74737cd88b6a26c5ca31d81d18e3515533d08df619317063224cf0943a2f29a5fe60c1c31ddf28334ed76a6478a1122fb24c4a94c8711617ddfe90cf02e643cd82d4748d6d4a7ca2f47d88563aa2baf6482e124acd7dd';
 
-const _blockSize = 16;
 const _shaLen = 20;
 
 Uint8List _unhex(String s) {
