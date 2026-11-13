@@ -19,7 +19,8 @@ Test on both an Android phone and an iPhone.
 - [ ] Up, down, left, right, OK, back, home, menu all work.
 - [ ] Volume up/down, mute, channel up/down work.
 - [ ] Holding volume or an arrow repeats and stops when released.
-- [ ] Mute toggles state as expected (the app currently sends "mute on" only; note whether a second press unmutes).
+- [ ] Mute toggles (first press mutes, second unmutes).
+- [ ] Pairing succeeds with the current permission list (includes CONTROL_MOUSE_AND_KEYBOARD). If the TV rejects the manifest or the d-pad never connects, note the TV's exact error text.
 
 **Power and wake**
 - [ ] Power turns the TV off.
