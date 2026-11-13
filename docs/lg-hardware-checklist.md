@@ -38,7 +38,8 @@ Test on both an Android phone and an iPhone.
 **Power and wake**
 - [ ] After the first successful pairing, the TV's MAC is captured automatically (check: power the TV off, then press Power in the app; it should wake without you ever typing a MAC). If it isn't captured, note the TV model and webOS version; the connection-info reply may differ and the parser needs adjusting.
 - [ ] Power turns the TV off.
-- [ ] With the TV off and its MAC saved (Add by IP, MAC field), Power turns it on via Wake-on-LAN.
+- [ ] With the TV off and its MAC saved, Power turns it on via Wake-on-LAN. Test it **immediately** and again **after a minute or two**. If it only works in the first few seconds, the TV's network is going to sleep: on the TV turn on All Settings > General > Devices > External Devices > TV On With Mobile > **Turn on via Wi-Fi**, and General > **Quick Start+** if present (names vary by model). A TV connected by network cable wakes far more reliably than one on Wi-Fi.
+- [ ] The app sends the wake signal 3 times to the general broadcast, the TV's own network and the TV itself (needed when the TV is on another network range).
 - [ ] With no MAC saved and the TV off, Power shows the "No MAC saved" message.
 
 **Resilience**

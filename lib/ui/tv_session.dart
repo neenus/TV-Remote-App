@@ -136,7 +136,7 @@ class _TvSessionState extends ConsumerState<TvSession> {
   Future<void> _turnOn(String mac) async {
     final messenger = ScaffoldMessenger.of(context);
     try {
-      await ref.read(wakeOnLanProvider)(mac);
+      await ref.read(wakeOnLanProvider)(mac, _device.host);
       messenger.showSnackBar(const SnackBar(
           content: Text('Wake signal sent. Give the TV a few seconds, then tap Retry.')));
     } catch (_) {

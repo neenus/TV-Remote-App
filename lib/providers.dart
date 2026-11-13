@@ -59,5 +59,5 @@ final driverFactoryProvider = Provider<TvDriver Function(TvDevice)>((ref) {
 });
 
 /// Sends a Wake-on-LAN packet; overridable in tests.
-final wakeOnLanProvider =
-    Provider<Future<void> Function(String mac)>((ref) => sendWakeOnLan);
+final wakeOnLanProvider = Provider<Future<void> Function(String mac, String host)>(
+    (ref) => (mac, host) => sendWakeOnLan(mac, host: host));

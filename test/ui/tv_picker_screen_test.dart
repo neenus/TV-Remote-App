@@ -38,7 +38,7 @@ Future<Widget> app({
   Stream<TvDevice> Function()? rediscover,
   Stream<DiscoveryState>? discovery,
   KeyStore? keys,
-  Future<void> Function(String)? wake,
+  Future<void> Function(String, String)? wake,
 }) async {
   SharedPreferences.setMockInitialValues({
     'saved_tvs': savedTvs.map((d) => jsonEncode(d.toJson())).toList(),
@@ -52,7 +52,7 @@ Future<Widget> app({
           (ref) => discovery ?? Stream.value(DiscoveryState(foundTvs))),
       driverFactoryProvider.overrideWithValue(driver ?? (_) => FakeDriver()),
       rediscoverProvider.overrideWithValue(rediscover ?? () => const Stream.empty()),
-      wakeOnLanProvider.overrideWithValue(wake ?? (_) async {}),
+      wakeOnLanProvider.overrideWithValue(wake ?? (_, _) async {}),
     ],
     child: const App(),
   );
@@ -136,7 +136,7 @@ void main() {
         id: 's1', name: 'Saved TV', brand: TvBrand.lg, host: '10.0.0.2', mac: 'AA:BB:CC:DD:EE:FF');
     await tester.pumpWidget(await app(
         savedTvs: [withMac],
-        wake: (m) async => woken = m,
+        wake: (m, _) async => woken = m,
         driver: (_) => ScriptedDriver((d) async => throw const TvConnectionError())));
     await tester.pump();
     await tester.tap(find.text('Saved TV'));
