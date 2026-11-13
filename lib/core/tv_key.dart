@@ -13,4 +13,8 @@ enum TvKey {
   mute,
   channelUp,
   channelDown,
+  rewind,
+  play,
+  pause,
+  fastForward,
 }

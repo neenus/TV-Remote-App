@@ -105,6 +105,14 @@ void main() {
     expect(tv.transports[1].sent.last, 'type:button\nname:MUTE\n\n');
   });
 
+  test('media_key_uses_media_controls_request', () async {
+    final d = build(tv, keys);
+    await d.connect();
+    await d.sendKey(TvKey.pause);
+    final m = jsonDecode(tv.main.sent.last) as Map;
+    expect(m['uri'], 'ssap://media.controls/pause');
+  });
+
   test('malformed_inbound_is_ignored', () async {
     final d = build(tv, keys);
     final states = <TvConnectionState>[];

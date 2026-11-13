@@ -20,6 +20,7 @@ Test on both an Android phone and an iPhone.
 - [ ] Up, down, left, right, OK, back, home, menu all work.
 - [ ] Volume up/down, mute, channel up/down work.
 - [ ] Holding volume or an arrow repeats and stops when released.
+- [ ] Rewind, play, pause and fast-forward work while a video is playing (these depend on the app playing it; note which apps respond).
 - [ ] Mute toggles (first press mutes, second unmutes).
 - [ ] Pairing succeeds with the current permission list (includes CONTROL_MOUSE_AND_KEYBOARD). If the TV rejects the manifest or the d-pad never connects, note the TV's exact error text.
 

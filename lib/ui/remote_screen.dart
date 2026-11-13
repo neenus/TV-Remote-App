@@ -110,6 +110,16 @@ class RemoteScreen extends StatelessWidget {
                     const SizedBox(width: 12),
                     Expanded(child: _btn(context, TvKey.menu, const Icon(Icons.menu))),
                   ]),
+                  const SizedBox(height: 16),
+                  Row(children: [
+                    Expanded(child: _btn(context, TvKey.rewind, const Icon(Icons.fast_rewind))),
+                    const SizedBox(width: 12),
+                    Expanded(child: _btn(context, TvKey.play, const Icon(Icons.play_arrow))),
+                    const SizedBox(width: 12),
+                    Expanded(child: _btn(context, TvKey.pause, const Icon(Icons.pause))),
+                    const SizedBox(width: 12),
+                    Expanded(child: _btn(context, TvKey.fastForward, const Icon(Icons.fast_forward))),
+                  ]),
                   const SizedBox(height: 24),
                   Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
                     _rocker(context, 'VOL', TvKey.volumeUp, TvKey.volumeDown),

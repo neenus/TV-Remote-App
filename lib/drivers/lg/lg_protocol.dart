@@ -103,6 +103,10 @@ class LgKeyMap {
         TvKey.channelUp => 'ssap://tv/channelUp',
         TvKey.channelDown => 'ssap://tv/channelDown',
         TvKey.power => 'ssap://system/turnOff',
+        TvKey.play => 'ssap://media.controls/play',
+        TvKey.pause => 'ssap://media.controls/pause',
+        TvKey.rewind => 'ssap://media.controls/rewind',
+        TvKey.fastForward => 'ssap://media.controls/fastForward',
         _ => null,
       };
 

@@ -59,4 +59,25 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.byType(SnackBar), findsOneWidget);
   });
+
+  for (final k in [TvKey.rewind, TvKey.play, TvKey.pause, TvKey.fastForward]) {
+    testWidgets('tapping_${k.name}_sends_${k.name}', (tester) async {
+      final d = FakeDriver();
+      await tester.pumpWidget(screen(d));
+      await tester.ensureVisible(key(k));
+      await tester.tap(key(k));
+      await tester.pump();
+      expect(d.sent, [k]);
+    });
+  }
+
+  testWidgets('media_keys_are_disabled_when_the_tv_cannot_do_them', (tester) async {
+    final d = FakeDriver(
+        capabilities: TvCapabilities(TvKey.values.toSet()..remove(TvKey.play)));
+    await tester.pumpWidget(screen(d));
+    await tester.ensureVisible(key(TvKey.play));
+    await tester.tap(key(TvKey.play));
+    await tester.pump();
+    expect(d.sent, isEmpty);
+  });
 }

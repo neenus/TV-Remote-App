@@ -127,4 +127,11 @@ void main() {
       expect(r, isA<PinPrompt>());
     });
   });
+
+  test('media_keys_map_to_media_controls_uris', () {
+    expect(LgKeyMap.uri(TvKey.play), 'ssap://media.controls/play');
+    expect(LgKeyMap.uri(TvKey.pause), 'ssap://media.controls/pause');
+    expect(LgKeyMap.uri(TvKey.rewind), 'ssap://media.controls/rewind');
+    expect(LgKeyMap.uri(TvKey.fastForward), 'ssap://media.controls/fastForward');
+  });
 }
