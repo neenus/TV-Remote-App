@@ -13,6 +13,8 @@ class FakeSamsungHttp implements SamsungHttp {
   String sessionId = '1';
   bool failAll = false;
   bool emptyAuthData = false; // the PIN window expired
+  bool sioFails = false; // the control port (8000) does not answer
+  String sioBody = 'SID123:60:60:websocket,xhr-polling';
   bool noClientHello = false; // step 1 reply without a hello (wrong PIN on some TVs)
 
   Iterable<RecordedRequest> where(String method, String pathContains) =>
@@ -23,6 +25,10 @@ class FakeSamsungHttp implements SamsungHttp {
     requests.add((method: method, uri: uri, body: body));
     if (failAll) throw const SocketException('unreachable');
     final path = uri.path;
+    if (path == '/socket.io/1/' && method == 'GET') {
+      if (sioFails) throw const SocketException('port 8000 closed');
+      return HttpReply(200, sioBody);
+    }
     if (path == '/ws/apps/CloudPINPage' && method == 'GET') {
       return HttpReply(200,
           '<?xml version="1.0"?><service><name>CloudPINPage</name><state>$pinPageState</state></service>');

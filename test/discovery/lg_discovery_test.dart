@@ -82,7 +82,8 @@ void main() {
   });
 
   test('brand_labels_distinguish_the_older_samsung_option', () {
-    expect(brandLabel(TvBrand.samsung), 'Samsung');
-    expect(brandLabel(TvBrand.samsungLegacy), 'Samsung (older, pre-2016)');
+    expect(brandLabel(TvBrand.samsung), 'Samsung (2016 or newer)');
+    expect(brandLabel(TvBrand.samsungEncrypted), 'Samsung (2014-2015)');
+    expect(brandLabel(TvBrand.samsungLegacy), 'Samsung (2013 or older)');
   });
 }

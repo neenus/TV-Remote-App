@@ -49,6 +49,10 @@ class _TvPickerScreenState extends ConsumerState<TvPickerScreen> {
                   icon: const Icon(Icons.close, size: 18),
                   onPressed: () async {
                     await ref.read(tvRepositoryProvider).remove(d.id);
+                    // Forget the saved pairing too, so adding it again starts fresh.
+                    try {
+                      await ref.read(keyStoreProvider).delete(d.id);
+                    } catch (_) {}
                     if (mounted) setState(() {});
                   },
                 ),

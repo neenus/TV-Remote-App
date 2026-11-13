@@ -12,14 +12,15 @@ const _dialSt = 'urn:dial-multiscreen-org:service:dial:1';
 /// Label for choosing a brand (Add-by-IP).
 String brandLabel(TvBrand b) => switch (b) {
       TvBrand.lg => 'LG',
-      TvBrand.samsung => 'Samsung',
-      TvBrand.samsungLegacy => 'Samsung (older, pre-2016)',
+      TvBrand.samsung => 'Samsung (2016 or newer)',
+      TvBrand.samsungEncrypted => 'Samsung (2014-2015)',
+      TvBrand.samsungLegacy => 'Samsung (2013 or older)',
     };
 
 /// The brand as it appears in a TV's name.
 String brandName(TvBrand b) => switch (b) {
       TvBrand.lg => 'LG',
-      TvBrand.samsung || TvBrand.samsungLegacy => 'Samsung',
+      TvBrand.samsung || TvBrand.samsungEncrypted || TvBrand.samsungLegacy => 'Samsung',
     };
 
 TvDevice? parseSsdpResponse(String raw) {

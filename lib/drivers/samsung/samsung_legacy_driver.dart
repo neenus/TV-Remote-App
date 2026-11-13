@@ -13,7 +13,7 @@ const _deniedMessage = 'The TV did not allow the request. If no prompt appears w
     '(the menu name varies by model).';
 
 const _unsupportedNote =
-    'Some 2014-2015 Samsung models use a protocol this app does not support yet.';
+    'TVs from 2014-2015 use a different protocol: add the TV again and choose "Samsung (2014-2015)".';
 
 /// Samsung TVs from about 2008 to 2015, over the binary TCP protocol on port 55000.
 class SamsungLegacyDriver implements TvDriver {

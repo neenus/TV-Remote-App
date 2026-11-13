@@ -7,6 +7,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tv_remote/app.dart';
 import 'package:tv_remote/core/fake_driver.dart';
+import 'package:tv_remote/core/key_store.dart';
 import 'package:tv_remote/core/tv_device.dart';
 import 'package:tv_remote/core/tv_driver.dart';
 import 'package:tv_remote/discovery/discovery_state.dart';
@@ -35,6 +36,7 @@ Future<Widget> app({
   TvDriver Function(TvDevice)? driver,
   Stream<TvDevice> Function()? rediscover,
   Stream<DiscoveryState>? discovery,
+  KeyStore? keys,
   Future<void> Function(String)? wake,
 }) async {
   SharedPreferences.setMockInitialValues({
@@ -44,6 +46,7 @@ Future<Widget> app({
   return ProviderScope(
     overrides: [
       sharedPrefsProvider.overrideWithValue(prefs),
+      if (keys != null) keyStoreProvider.overrideWithValue(keys),
       discoveredTvsProvider.overrideWith(
           (ref) => discovery ?? Stream.value(DiscoveryState(foundTvs))),
       driverFactoryProvider.overrideWithValue(driver ?? (_) => FakeDriver()),
@@ -387,7 +390,7 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('Add by IP'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Samsung'));
+    await tester.tap(find.text('Samsung (2016 or newer)'));
     await tester.pump();
     await tester.enterText(find.byType(TextField).first, '10.0.0.8');
     await tester.tap(find.text('Connect'));
@@ -421,12 +424,40 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('Add by IP'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Samsung (older, pre-2016)'));
+    await tester.tap(find.text('Samsung (2013 or older)'));
     await tester.pump();
     await tester.enterText(find.byType(TextField).first, '10.0.0.7');
     await tester.tap(find.text('Connect'));
     await tester.pumpAndSettle();
     expect(created?.brand, TvBrand.samsungLegacy);
     expect(find.byType(RemoteScreen), findsOneWidget);
+  });
+
+  testWidgets('add_dialog_offers_2014_2015_samsung', (tester) async {
+    TvDevice? created;
+    await tester.pumpWidget(await app(driver: (d) {
+      created = d;
+      return FakeDriver();
+    }));
+    await tester.pump();
+    await tester.tap(find.text('Add by IP'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Samsung (2014-2015)'));
+    await tester.pump();
+    await tester.enterText(find.byType(TextField).first, '10.0.0.9');
+    await tester.tap(find.text('Connect'));
+    await tester.pumpAndSettle();
+    expect(created?.brand, TvBrand.samsungEncrypted);
+  });
+
+  testWidgets('forgetting_a_tv_also_deletes_its_saved_pairing', (tester) async {
+    final store = MemoryKeyStore();
+    await store.write('s1', 'saved-pairing');
+    await tester.pumpWidget(await app(savedTvs: [saved], keys: store));
+    await tester.pump();
+    await tester.tap(find.byTooltip('Forget'));
+    await tester.pumpAndSettle();
+    expect(find.text('Saved TV'), findsNothing);
+    expect(await store.read('s1'), isNull);
   });
 }

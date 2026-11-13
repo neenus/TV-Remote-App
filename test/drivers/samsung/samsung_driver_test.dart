@@ -178,7 +178,7 @@ void main() {
     await expectLater(
         build(tv, keys).connect(),
         throwsA(isA<TvConnectionError>()
-            .having((e) => e.message, 'message', contains('pre-2016'))));
+            .having((e) => e.message, 'message', contains('2014-2015'))));
   });
 
   test('falls_back_to_the_plain_port_when_secure_is_unavailable', () async {

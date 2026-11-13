@@ -76,14 +76,14 @@ Unverified on real hardware: the protocol comes from community documentation.
 
 ---
 
-# Samsung older than 2016 (legacy protocol, TCP port 55000)
+# Samsung 2013 or older (legacy protocol, TCP port 55000)
 
-This protocol is what roughly 2010-2013 Samsung TVs speak. Many 2014-2015 (H and J series) models use a different, encrypted pairing protocol that the app does not support yet; if yours is one of those, the app will say it could not reach the TV on port 55000.
+This protocol is what roughly 2010-2013 Samsung TVs speak. 2014-2015 (H and J series) models use a different protocol (see the next section).
 
 Unverified on real hardware. The packet formats were checked against the public samsungctl source, but not against a TV.
 
 **Pairing**
-- [ ] Add by IP, choosing "Samsung (older, pre-2016)" (the scan cannot tell old from new Samsungs).
+- [ ] Add by IP, choosing "Samsung (2013 or older)" (the scan cannot tell old from new Samsungs).
 - [ ] The first time, the TV shows an Allow / Deny box for "TV Remote". You must press Allow with the TV's own remote.
 - [ ] After allowing, the remote opens. Close the app and reopen: it connects without another prompt (the TV remembers the device).
 - [ ] Deny shows a Retry screen with a message that tells you to choose Allow on the TV.
@@ -98,3 +98,28 @@ Unverified on real hardware. The packet formats were checked against the public 
 **Resilience**
 - [ ] With the TV unplugged, connecting gives a clear error within about 10 seconds.
 - [ ] Note the TV model, year, and whether it showed the Allow prompt.
+
+---
+
+# Samsung 2014-2015 (H and J series: encrypted PIN pairing)
+
+Built from the samsungtvws library and verified against it with test vectors, but **never tried on a real TV yet**. Written for a UN50HU7000 (2014), which answers on ports 8000, 8001 and 8080 and refuses 55000 and 8002.
+
+**Pairing**
+- [ ] Add by IP, choosing **Samsung (2014-2015)**.
+- [ ] The app says "Enter the code shown on your TV" and the TV shows a PIN screen (4 digits). No remote is needed.
+- [ ] Typing the PIN and tapping Pair opens the remote. Note any message the app shows.
+- [ ] A wrong PIN shows "That code was not accepted" with Retry; Retry shows a fresh PIN screen.
+- [ ] Close the app and reopen: it connects without asking for a PIN again.
+- [ ] If keys stop working after a long time or after the TV was reset: remove the TV (the x on its card) and add it again to pair afresh.
+
+**Keys**
+- [ ] Up, down, left, right, OK, back, menu, volume, mute, channel.
+- [ ] Home opens SmartHub. Power turns the TV off (power on needs Wake-on-LAN and may not work on this age of set).
+- [ ] Rewind, play, pause, fast-forward during playback.
+- [ ] Typing is not supported (the keyboard icon is greyed out).
+
+**Resilience**
+- [ ] Leave the remote open for several minutes without touching it, then press a key: it still works (the app reconnects by itself if the connection dropped).
+- [ ] With the TV unplugged, connecting gives a clear error within about 10 seconds.
+- [ ] Note any step where the TV shows nothing or the app shows an unexpected message.

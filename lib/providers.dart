@@ -10,6 +10,8 @@ import 'discovery/lg_discovery.dart';
 import 'drivers/lg/lg_driver.dart';
 import 'drivers/lg/transport.dart';
 import 'drivers/samsung/samsung_driver.dart';
+import 'drivers/samsung/samsung_encrypted_driver.dart';
+import 'drivers/samsung/samsung_encrypted_http.dart';
 import 'drivers/samsung/samsung_legacy_driver.dart';
 import 'drivers/samsung/tcp_transport.dart';
 import 'storage/tv_repository.dart';
@@ -48,6 +50,8 @@ final driverFactoryProvider = Provider<TvDriver Function(TvDevice)>((ref) {
   return (device) => switch (device.brand) {
         TvBrand.lg => LgDriver(device, keys, WebSocketTransport.new),
         TvBrand.samsung => SamsungDriver(device, keys, WebSocketTransport.new),
+        TvBrand.samsungEncrypted =>
+          SamsungEncryptedDriver(device, keys, WebSocketTransport.new, IoSamsungHttp()),
         TvBrand.samsungLegacy => SamsungLegacyDriver(device, TcpTransport.new),
       };
 });
