@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'core/key_store.dart';
 import 'core/tv_device.dart';
 import 'core/tv_driver.dart';
+import 'core/wake_on_lan.dart';
 import 'discovery/lg_discovery.dart';
 import 'drivers/lg/lg_driver.dart';
 import 'drivers/lg/transport.dart';
@@ -37,3 +38,7 @@ final driverFactoryProvider = Provider<TvDriver Function(TvDevice)>((ref) {
   final keys = ref.watch(keyStoreProvider);
   return (device) => LgDriver(device, keys, WebSocketTransport.new);
 });
+
+/// Sends a Wake-on-LAN packet; overridable in tests.
+final wakeOnLanProvider =
+    Provider<Future<void> Function(String mac)>((ref) => sendWakeOnLan);

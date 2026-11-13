@@ -8,6 +8,7 @@ const _permissions = [
   'CONTROL_INPUT_TV',
   'CONTROL_INPUT_JOYSTICK',
   'CONTROL_INPUT_MEDIA_PLAYBACK',
+  'CONTROL_MOUSE_AND_KEYBOARD',
   'READ_TV_CHANNEL_LIST',
 ];
 
@@ -104,6 +105,7 @@ class LgKeyMap {
         TvKey.back => 'BACK',
         TvKey.home => 'HOME',
         TvKey.menu => 'MENU',
+        TvKey.mute => 'MUTE',
         _ => null,
       };
 }

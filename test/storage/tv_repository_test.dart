@@ -42,4 +42,16 @@ void main() {
     final r = await repo.refreshHost(a, found);
     expect(r.host, '1.1.1.1');
   });
+
+  test('repository_skips_corrupt_entries', () async {
+    SharedPreferences.setMockInitialValues({
+      'saved_tvs': [
+        'not json',
+        '{"id":"x","name":"X","brand":"nope","host":"h"}',
+        '{"id":"a","name":"A","brand":"lg","host":"1.1.1.1"}',
+      ]
+    });
+    repo = TvRepository(await SharedPreferences.getInstance());
+    expect(repo.all().map((d) => d.id), ['a']);
+  });
 }

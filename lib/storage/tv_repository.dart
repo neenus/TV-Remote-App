@@ -9,9 +9,17 @@ class TvRepository {
   final SharedPreferences _prefs;
   static const _key = 'saved_tvs';
 
-  List<TvDevice> all() => (_prefs.getStringList(_key) ?? const [])
-      .map((s) => TvDevice.fromJson(jsonDecode(s) as Map<String, dynamic>))
-      .toList();
+  List<TvDevice> all() {
+    final result = <TvDevice>[];
+    for (final s in _prefs.getStringList(_key) ?? const <String>[]) {
+      try {
+        result.add(TvDevice.fromJson(jsonDecode(s) as Map<String, dynamic>));
+      } catch (_) {
+        // A corrupt entry must not break the whole picker.
+      }
+    }
+    return result;
+  }
 
   Future<void> _write(List<TvDevice> list) => _prefs.setStringList(
       _key, list.map((d) => jsonEncode(d.toJson())).toList());

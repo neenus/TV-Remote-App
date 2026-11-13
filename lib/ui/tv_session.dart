@@ -26,6 +26,8 @@ class _TvSessionState extends ConsumerState<TvSession> {
   TvConnectionState _status = const Connecting();
   bool _everConnected = false;
   bool _refreshed = false;
+  bool _searching = false;
+  int _gen = 0; // bumped by every (re)start and on dispose to drop stale work
 
   @override
   void initState() {
@@ -33,14 +35,30 @@ class _TvSessionState extends ConsumerState<TvSession> {
     _start();
   }
 
+  void _retry() {
+    _refreshed = false;
+    _start();
+  }
+
   Future<void> _start() async {
-    await _sub?.cancel();
-    await _driver?.dispose();
+    final gen = ++_gen;
+    bool stale() => !mounted || gen != _gen;
+
+    final oldSub = _sub, oldDriver = _driver;
+    _sub = null;
+    _driver = null;
+    // Release the old attempt without waiting on it: cleanup must never block a retry.
+    unawaited(oldSub?.cancel());
+    unawaited(oldDriver?.dispose());
+
     final driver = ref.read(driverFactoryProvider)(_device);
     _driver = driver;
-    if (mounted) setState(() => _status = const Connecting());
+    setState(() {
+      _status = const Connecting();
+      _searching = false;
+    });
     _sub = driver.state.listen((s) {
-      if (!mounted) return;
+      if (stale()) return;
       setState(() {
         _status = s;
         if (s is Connected) _everConnected = true;
@@ -48,31 +66,58 @@ class _TvSessionState extends ConsumerState<TvSession> {
     });
     try {
       await driver.connect();
+      if (stale()) return;
       await ref.read(tvRepositoryProvider).save(_device);
     } on TvConnectionError catch (e) {
+      if (stale()) return;
       // The TV may have a new DHCP address: look for it once before giving up.
       if (!_refreshed) {
         _refreshed = true;
-        final updated = await ref
-            .read(tvRepositoryProvider)
-            .refreshHost(_device, ref.read(rediscoverProvider)());
-        if (updated.host != _device.host && mounted) {
+        setState(() {
+          _status = const Connecting();
+          _searching = true;
+        });
+        var updated = _device;
+        try {
+          updated = await ref
+              .read(tvRepositoryProvider)
+              .refreshHost(_device, ref.read(rediscoverProvider)());
+        } catch (_) {
+          // Discovery unavailable (e.g. no network permission): fall through.
+        }
+        if (stale()) return;
+        if (updated.host != _device.host) {
           _device = updated;
           return _start();
         }
       }
       _fail(e);
     } on TvError catch (e) {
-      _fail(e);
+      if (!stale()) _fail(e);
+    } catch (_) {
+      if (!stale()) _fail(const TvConnectionError());
     }
   }
 
-  void _fail(TvError e) {
-    if (mounted) setState(() => _status = Failed(e));
+  void _fail(TvError e) => setState(() {
+        _status = Failed(e);
+        _searching = false;
+      });
+
+  Future<void> _turnOn(String mac) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref.read(wakeOnLanProvider)(mac);
+      messenger.showSnackBar(const SnackBar(
+          content: Text('Wake signal sent. Give the TV a few seconds, then tap Retry.')));
+    } catch (_) {
+      messenger.showSnackBar(const SnackBar(content: Text('Could not send the wake signal')));
+    }
   }
 
   @override
   void dispose() {
+    _gen++;
     _sub?.cancel();
     _driver?.dispose();
     super.dispose();
@@ -80,7 +125,9 @@ class _TvSessionState extends ConsumerState<TvSession> {
 
   Widget _message(Widget content) => Scaffold(
         body: AuroraBackground(
-            child: SafeArea(child: Center(child: Padding(padding: const EdgeInsets.all(28), child: content)))),
+            child: SafeArea(
+                child: Center(
+                    child: Padding(padding: const EdgeInsets.all(28), child: content)))),
       );
 
   @override
@@ -90,7 +137,8 @@ class _TvSessionState extends ConsumerState<TvSession> {
       return RemoteScreen(
         driver: driver,
         tvName: _device.name,
-        onPower: () => handlePower(device: _device, driver: driver),
+        onPower: () => handlePower(
+            device: _device, driver: driver, wake: ref.read(wakeOnLanProvider)),
       );
     }
     final status = _status;
@@ -101,21 +149,26 @@ class _TvSessionState extends ConsumerState<TvSession> {
           : error is TvError
               ? error.message
               : 'Something went wrong';
+      final mac = _device.mac;
       return _message(Column(mainAxisSize: MainAxisSize.min, children: [
         const Icon(Icons.wifi_off, size: 40, color: AuroraColors.magenta),
         const SizedBox(height: 16),
         Text(text, textAlign: TextAlign.center),
         const SizedBox(height: 24),
-        FilledButton(onPressed: _start, child: const Text('Retry')),
+        FilledButton(onPressed: _retry, child: const Text('Retry')),
+        if (mac != null && error is TvConnectionError)
+          TextButton(onPressed: () => _turnOn(mac), child: const Text('Turn on TV')),
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Back')),
       ]));
     }
     return _message(Column(mainAxisSize: MainAxisSize.min, children: [
       const CircularProgressIndicator(),
       const SizedBox(height: 20),
-      Text(status is AwaitingPairing
-          ? 'Accept the prompt on your TV'
-          : 'Connecting to ${_device.name}…'),
+      Text(_searching
+          ? 'Searching for your TV…'
+          : status is AwaitingPairing
+              ? 'Accept the prompt on your TV'
+              : 'Connecting to ${_device.name}…'),
     ]));
   }
 }

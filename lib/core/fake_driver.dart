@@ -25,5 +25,7 @@ class FakeDriver implements TvDriver {
   Future<void> sendKey(TvKey key) async => sent.add(key);
 
   @override
-  Future<void> dispose() async => _controller.close();
+  Future<void> dispose() async {
+    unawaited(_controller.close()); // see LgDriver.dispose
+  }
 }

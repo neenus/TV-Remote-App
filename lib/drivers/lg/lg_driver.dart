@@ -9,6 +9,11 @@ import 'transport.dart';
 
 class _KeyRejected implements Exception {}
 
+class LgUris {
+  static const pointerSocket =
+      'ssap://com.webos.service.networkinput/getPointerInputSocket';
+}
+
 class LgDriver implements TvDriver {
   LgDriver(
     this.device,
@@ -47,15 +52,38 @@ class LgDriver implements TvDriver {
     if (!_states.isClosed) _states.add(s);
   }
 
+  // Key storage must never be able to break control of the TV.
+  Future<String?> _readKey() async {
+    try {
+      return await _keys.read(device.id);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _writeKey(String key) async {
+    try {
+      await _keys.write(device.id, key);
+    } catch (_) {}
+  }
+
+  Future<void> _deleteKey() async {
+    try {
+      await _keys.delete(device.id);
+    } catch (_) {}
+  }
+
   @override
-  Future<void> connect() =>
-      _connecting ??= _connect().whenComplete(() => _connecting = null);
+  Future<void> connect() {
+    if (_disposed) return Future.error(const TvConnectionError('Driver disposed'));
+    return _connecting ??= _connect().whenComplete(() => _connecting = null);
+  }
 
   Future<void> _connect() async {
     _emit(const Connecting());
     try {
       await _teardown();
-      var key = await _keys.read(device.id);
+      var key = await _readKey();
       final main = _makeTransport();
       _main = main;
       try {
@@ -73,25 +101,27 @@ class LgDriver implements TvDriver {
           clientKey = await _register(main, key);
           break;
         } on _KeyRejected {
-          await _keys.delete(device.id);
+          await _deleteKey();
           key = null;
         }
       }
-      await _keys.write(device.id, clientKey);
+      await _writeKey(clientKey);
 
       final path = await _requestPointerSocket(main);
       final pointer = _makeTransport();
       try {
         await pointer.open(Uri.parse(path)).timeout(connectTimeout);
       } catch (_) {
+        await pointer.close().catchError((_) {});
         throw const TvConnectionError('Could not open the TV input socket');
       }
       _pointer = pointer;
       _emit(const Connected());
-    } on TvError catch (e) {
+    } catch (e) {
+      final error = e is TvError ? e : const TvConnectionError();
       await _teardown();
-      _emit(Failed(e));
-      rethrow;
+      _emit(Failed(error));
+      throw error;
     }
   }
 
@@ -101,7 +131,10 @@ class LgDriver implements TvDriver {
     _usedStoredKey = key != null;
     _startTimer(connectTimeout, c, const TvConnectionError());
     main.send(registerMessage(clientKey: key));
-    return c.future.whenComplete(() => _timer?.cancel());
+    return c.future.whenComplete(() {
+      _timer?.cancel();
+      if (identical(_registration, c)) _registration = null;
+    });
   }
 
   Future<String> _requestPointerSocket(Transport main) {
@@ -110,7 +143,10 @@ class LgDriver implements TvDriver {
     _startTimer(connectTimeout, c,
         const TvConnectionError('TV did not provide an input socket'));
     main.send(requestMessage('pointer', LgUris.pointerSocket));
-    return c.future.whenComplete(() => _timer?.cancel());
+    return c.future.whenComplete(() {
+      _timer?.cancel();
+      if (identical(_pointerPath, c)) _pointerPath = null;
+    });
   }
 
   void _startTimer(Duration d, Completer<String> c, TvError error) {
@@ -120,13 +156,27 @@ class LgDriver implements TvDriver {
     });
   }
 
+  /// Fails whatever handshake step is waiting, so connect() can't hang.
+  void _failPending(TvError error) {
+    for (final c in [_registration, _pointerPath]) {
+      if (c != null && !c.isCompleted) c.completeError(error);
+    }
+  }
+
   void _onMain(String raw) {
     final msg = parseInbound(raw);
     if (msg == null) return;
     switch (msg) {
       case Registered(:final clientKey):
-        _registration?.complete(clientKey);
+        final c = _registration;
+        if (c != null && !c.isCompleted) c.complete(clientKey);
       case PairingPrompt():
+        // The TV doesn't know our key (or we have none): from here on an error
+        // means the user denied the prompt, not that the stored key was stale.
+        if (_usedStoredKey) {
+          _usedStoredKey = false;
+          unawaited(_deleteKey());
+        }
         _emit(const AwaitingPairing());
         final c = _registration;
         if (c != null && !c.isCompleted) {
@@ -136,6 +186,11 @@ class LgDriver implements TvDriver {
         final c = _registration;
         if (c != null && !c.isCompleted) {
           c.completeError(_usedStoredKey ? _KeyRejected() : const PairingDenied());
+        }
+      case LgErrorMsg(:final id, :final error) when id == 'pointer':
+        final c = _pointerPath;
+        if (c != null && !c.isCompleted) {
+          c.completeError(TvConnectionError('TV refused the input socket: $error'));
         }
       case Response(:final id, :final payload) when id == 'pointer':
         final path = payload['socketPath'];
@@ -151,6 +206,7 @@ class LgDriver implements TvDriver {
 
   void _onClosed() {
     if (_disposed) return;
+    _failPending(const TvConnectionError('Connection to the TV was lost'));
     _emit(const Disconnected());
     unawaited(_teardown());
   }
@@ -172,15 +228,18 @@ class LgDriver implements TvDriver {
 
   @override
   Future<void> sendKey(TvKey key) async {
-    if (!_alive) await connect();
+    if (!_alive) {
+      final joining = _connecting != null;
+      await connect();
+      // A reconnect was already underway for an earlier press: drop this one
+      // rather than letting queued presses all fire at once on reconnect.
+      if (joining) return;
+    }
     final main = _main, pointer = _pointer;
     if (main == null || pointer == null) throw const TvConnectionError();
     final pointerName = LgKeyMap.pointerName(key);
     if (pointerName != null) {
       pointer.send(pointerButtonFrame(pointerName));
-    } else if (key == TvKey.mute) {
-      main.send(requestMessage('req_${_reqCounter++}', 'ssap://audio/setMute',
-          {'mute': true}));
     } else {
       main.send(requestMessage('req_${_reqCounter++}', LgKeyMap.uri(key)!));
     }
@@ -189,12 +248,9 @@ class LgDriver implements TvDriver {
   @override
   Future<void> dispose() async {
     _disposed = true;
+    _failPending(const TvConnectionError('Driver disposed'));
     await _teardown();
-    await _states.close();
+    // Not awaited: close() on a broadcast stream with no listeners never completes.
+    unawaited(_states.close());
   }
-}
-
-class LgUris {
-  static const pointerSocket =
-      'ssap://com.webos.service.networkinput/getPointerInputSocket';
 }

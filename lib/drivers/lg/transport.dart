@@ -13,6 +13,7 @@ abstract class Transport {
 /// its LAN-only wss port, so certificate errors are accepted for this socket.
 class WebSocketTransport implements Transport {
   WebSocket? _ws;
+  bool _closed = false;
   final _controller = StreamController<String>.broadcast();
 
   @override
@@ -23,8 +24,16 @@ class WebSocketTransport implements Transport {
 
   @override
   Future<void> open(Uri uri) async {
-    final client = HttpClient()..badCertificateCallback = (_, _, _) => true;
+    final client = HttpClient()
+      ..connectionTimeout = const Duration(seconds: 5)
+      ..badCertificateCallback = (_, _, _) => true;
     final ws = await WebSocket.connect(uri.toString(), customClient: client);
+    if (_closed) {
+      // close() ran while we were still connecting (e.g. the caller timed out):
+      // don't leave a live socket to the TV behind.
+      await ws.close();
+      throw StateError('Transport closed while opening');
+    }
     _ws = ws;
     ws.listen(
       (e) {
@@ -45,6 +54,7 @@ class WebSocketTransport implements Transport {
 
   @override
   Future<void> close() async {
+    _closed = true;
     await _ws?.close();
     if (!_controller.isClosed) await _controller.close();
   }

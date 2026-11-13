@@ -54,12 +54,19 @@ void main() {
     expect(parseInbound('[1,2]'), isNull);
   });
 
-  test('keymap_covers_every_key_except_mute', () {
-    for (final k in TvKey.values.where((k) => k != TvKey.mute)) {
+  test('register_requests_pointer_socket_permission', () {
+    final m = jsonDecode(registerMessage()) as Map;
+    final perms = ((m['payload'] as Map)['manifest'] as Map)['permissions'] as List;
+    expect(perms, contains('CONTROL_MOUSE_AND_KEYBOARD'));
+  });
+
+  test('keymap_covers_every_key', () {
+    for (final k in TvKey.values) {
       expect(LgKeyMap.uri(k) != null || LgKeyMap.pointerName(k) != null, isTrue,
           reason: '$k unmapped');
     }
     expect(LgKeyMap.pointerName(TvKey.ok), 'ENTER');
+    expect(LgKeyMap.pointerName(TvKey.mute), 'MUTE');
     expect(LgKeyMap.uri(TvKey.volumeUp), 'ssap://audio/volumeUp');
   });
 }

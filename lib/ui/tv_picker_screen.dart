@@ -60,8 +60,10 @@ class _TvPickerScreenState extends ConsumerState<TvPickerScreen> {
   Widget build(BuildContext context) {
     final savedTvs = ref.read(tvRepositoryProvider).all();
     final savedIds = savedTvs.map((d) => d.id).toSet();
+    final savedHosts = savedTvs.map((d) => d.host).toSet();
+    // A TV added by IP has a different id than its SSDP uuid, so match on host too.
     final found = (ref.watch(discoveredTvsProvider).value ?? const <TvDevice>[])
-        .where((d) => !savedIds.contains(d.id))
+        .where((d) => !savedIds.contains(d.id) && !savedHosts.contains(d.host))
         .toList();
     return Scaffold(
       body: AuroraBackground(

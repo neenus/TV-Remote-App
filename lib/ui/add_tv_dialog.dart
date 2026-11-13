@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:material_ui/material_ui.dart';
 
 import '../core/tv_device.dart';
@@ -32,6 +34,10 @@ class _AddTvDialogState extends State<_AddTvDialog> {
       setState(() => _error = 'Enter the TV\'s IP address');
       return;
     }
+    if (InternetAddress.tryParse(host) == null) {
+      setState(() => _error = 'Enter a valid IP address');
+      return;
+    }
     final mac = _mac.text.trim();
     if (mac.isNotEmpty) {
       try {
@@ -51,7 +57,7 @@ class _AddTvDialogState extends State<_AddTvDialog> {
         content: Column(mainAxisSize: MainAxisSize.min, children: [
           TextField(
               controller: _ip,
-              keyboardType: TextInputType.number,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
               decoration: const InputDecoration(labelText: 'IP address')),
           TextField(
               controller: _mac,

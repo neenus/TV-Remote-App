@@ -12,6 +12,9 @@ class FakeTv {
   bool silent = false;
   bool promptFirst = false;
   bool openFails = false;
+  bool promptOnly = false; // shows the prompt, then never answers
+  bool promptThenDeny = false;
+  bool pointerError = false;
 
   Transport make() {
     final t = FakeTransport(this);
@@ -65,6 +68,15 @@ class FakeTransport implements Transport {
     if (m is! Map) return;
     if (m['type'] == 'register') {
       final payload = m['payload'] as Map;
+      if (tv.promptOnly) {
+        push('{"type":"response","id":"register_0","payload":{"pairingType":"PROMPT","returnValue":true}}');
+        return;
+      }
+      if (tv.promptThenDeny) {
+        push('{"type":"response","id":"register_0","payload":{"pairingType":"PROMPT","returnValue":true}}');
+        push('{"type":"error","id":"register_0","error":"403 User denied access"}');
+        return;
+      }
       if (tv.rejectStoredKeys && payload.containsKey('client-key')) {
         push('{"type":"error","id":"register_0","error":"403 forbidden"}');
       } else if (tv.denyPairing) {
@@ -76,6 +88,10 @@ class FakeTransport implements Transport {
         push('{"type":"registered","id":"register_0","payload":{"client-key":"${tv.clientKeyToIssue}"}}');
       }
     } else if (m['type'] == 'request' && m['id'] == 'pointer') {
+      if (tv.pointerError) {
+        push('{"type":"error","id":"pointer","error":"401 insufficient permissions"}');
+        return;
+      }
       push('{"type":"response","id":"pointer","payload":{"returnValue":true,"socketPath":"wss://tv:3001/resources/x/netinput_pointer.sock"}}');
     }
   }
