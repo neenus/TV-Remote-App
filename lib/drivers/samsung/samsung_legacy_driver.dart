@@ -8,8 +8,12 @@ import 'samsung_legacy_protocol.dart';
 import 'samsung_protocol.dart' show macFromSamsungDeviceInfo;
 import 'tcp_transport.dart';
 
-const _deniedMessage =
-    'The TV did not allow the request. On the TV, choose Allow for "TV Remote" and try again.';
+const _deniedMessage = 'The TV did not allow the request. If no prompt appears when you retry, '
+    'allow "TV Remote" in the TV\'s network or external device settings '
+    '(the menu name varies by model).';
+
+const _unsupportedNote =
+    'Some 2014-2015 Samsung models use a protocol this app does not support yet.';
 
 /// Samsung TVs from about 2008 to 2015, over the binary TCP protocol on port 55000.
 class SamsungLegacyDriver implements TvDriver {
@@ -19,6 +23,7 @@ class SamsungLegacyDriver implements TvDriver {
     JsonFetcher? fetchJson,
     this.connectTimeout = const Duration(seconds: 5),
     this.pairingTimeout = const Duration(seconds: 60),
+    this.ackTimeout = const Duration(seconds: 3),
   }) : _fetchJson = fetchJson ?? defaultFetchJson;
 
   final TvDevice device;
@@ -27,12 +32,18 @@ class SamsungLegacyDriver implements TvDriver {
   final Duration connectTimeout;
   final Duration pairingTimeout;
 
+  /// How long a key press may go unacknowledged before the socket is considered dead.
+  final Duration ackTimeout;
+
   final _states = StreamController<TvConnectionState>.broadcast();
   ByteTransport? _transport;
   StreamSubscription<List<int>>? _sub;
   Future<void>? _connecting;
   Completer<void>? _ready;
   Timer? _timer;
+  Timer? _ackTimer;
+  int _pendingAcks = 0;
+  bool _prompted = false;
   bool _disposed = false;
 
   @override
@@ -91,7 +102,8 @@ class SamsungLegacyDriver implements TvDriver {
       await _closeQuietly(transport);
       _checkDisposed();
       throw TvConnectionError(
-          'Could not reach the TV on port $legacyPort. Check it is on and on the same Wi-Fi.');
+          'Could not reach the TV on port $legacyPort. Check it is on and on the same Wi-Fi. '
+          '$_unsupportedNote');
     }
     if (_disposed) {
       await _closeQuietly(transport);
@@ -99,15 +111,16 @@ class SamsungLegacyDriver implements TvDriver {
     }
     final ready = Completer<void>();
     _ready = ready;
+    _prompted = false;
     final parser = LegacyFrameParser();
     _sub = transport.bytes.listen(
       (chunk) => _onBytes(transport, parser, ready, chunk),
       onDone: () => _onClosed(transport),
     );
     _startTimer(connectTimeout, ready,
-        const TvConnectionError('The TV did not answer. Is it a Samsung from 2015 or older?'));
-    transport.send(legacyHandshake());
+        const TvConnectionError('The TV did not answer. $_unsupportedNote'));
     try {
+      transport.send(legacyHandshake());
       await ready.future;
     } finally {
       _timer?.cancel();
@@ -135,18 +148,26 @@ class SamsungLegacyDriver implements TvDriver {
         case LegacyGranted():
           if (!ready.isCompleted) ready.complete();
         case LegacyWaiting():
-          if (!ready.isCompleted) {
+          // Only the first "waiting" counts: repeats must not extend the timeout.
+          if (!ready.isCompleted && !_prompted) {
+            _prompted = true;
             _emit(const AwaitingPairing());
             _startTimer(pairingTimeout, ready, const PairingDenied('Pairing timed out'));
           }
         case LegacyDenied() || LegacyCancelled():
-          if (!ready.isCompleted) ready.completeError(const PairingDenied(_deniedMessage));
+          if (!ready.isCompleted) {
+            ready.completeError(const PairingDenied(_deniedMessage));
+          } else {
+            // The TV revoked access while connected: report it; the next press retries.
+            _emit(const Failed(PairingDenied(_deniedMessage)));
+            unawaited(_teardown());
+          }
         case LegacyUnknown():
           if (!ready.isCompleted) {
             ready.completeError(const TvConnectionError('Unexpected reply from the TV'));
           }
         case LegacyAck():
-          break;
+          _onAck();
       }
     }
   }
@@ -158,8 +179,32 @@ class SamsungLegacyDriver implements TvDriver {
     unawaited(_teardown());
   }
 
+  void _expectAck() {
+    _pendingAcks++;
+    _ackTimer ??= Timer(ackTimeout, _onAckTimeout);
+  }
+
+  void _onAck() {
+    if (_pendingAcks > 0) _pendingAcks--;
+    _ackTimer?.cancel();
+    _ackTimer = _pendingAcks > 0 ? Timer(ackTimeout, _onAckTimeout) : null;
+  }
+
+  /// The TV acknowledges every key. Silence means the socket is dead (e.g. the TV
+  /// was switched off at the wall): drop it so the next press reconnects or fails.
+  void _onAckTimeout() {
+    _ackTimer = null;
+    _pendingAcks = 0;
+    if (_disposed) return;
+    _emit(const Disconnected());
+    unawaited(_teardown());
+  }
+
   Future<void> _teardown() async {
     _timer?.cancel();
+    _ackTimer?.cancel();
+    _ackTimer = null;
+    _pendingAcks = 0;
     final transport = _transport, sub = _sub;
     _transport = null;
     _sub = null;
@@ -183,6 +228,7 @@ class SamsungLegacyDriver implements TvDriver {
     final transport = _transport;
     if (transport == null) throw const TvConnectionError();
     transport.send(legacyKeyPacket(LegacyKeyMap.key(key)!));
+    _expectAck();
   }
 
   static const _noTyping = TvConnectionError('Typing is not supported on this Samsung TV yet');

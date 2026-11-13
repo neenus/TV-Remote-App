@@ -421,7 +421,7 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('Add by IP'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Samsung (2015 or older)'));
+    await tester.tap(find.text('Samsung (older, pre-2016)'));
     await tester.pump();
     await tester.enterText(find.byType(TextField).first, '10.0.0.7');
     await tester.tap(find.text('Connect'));

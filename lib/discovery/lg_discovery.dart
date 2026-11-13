@@ -13,7 +13,7 @@ const _dialSt = 'urn:dial-multiscreen-org:service:dial:1';
 String brandLabel(TvBrand b) => switch (b) {
       TvBrand.lg => 'LG',
       TvBrand.samsung => 'Samsung',
-      TvBrand.samsungLegacy => 'Samsung (2015 or older)',
+      TvBrand.samsungLegacy => 'Samsung (older, pre-2016)',
     };
 
 /// The brand as it appears in a TV's name.

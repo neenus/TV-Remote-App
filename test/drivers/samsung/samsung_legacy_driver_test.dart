@@ -12,9 +12,13 @@ const device = TvDevice(id: 'l-1', name: 'Old Samsung', brand: TvBrand.samsungLe
 SamsungLegacyDriver build(FakeLegacyTv tv,
         {Duration timeout = const Duration(seconds: 2),
         Duration pairing = const Duration(seconds: 2),
+        Duration ack = const Duration(milliseconds: 150),
         Future<Map<String, dynamic>?> Function(Uri)? fetch}) =>
     SamsungLegacyDriver(device, tv.make,
-        fetchJson: fetch, connectTimeout: timeout, pairingTimeout: pairing);
+        fetchJson: fetch,
+        connectTimeout: timeout,
+        pairingTimeout: pairing,
+        ackTimeout: ack);
 
 void main() {
   late FakeLegacyTv tv;
@@ -193,5 +197,66 @@ void main() {
         await build(tv, fetch: (_) async => {'device': {'wifiMac': 'aa:bb:cc:dd:ee:ff'}})
             .fetchMacAddress(),
         'AA:BB:CC:DD:EE:FF');
+  });
+
+  test('repeated_waiting_frames_do_not_extend_the_pairing_timeout', () async {
+    tv.mode = LegacyMode.repeatWaiting;
+    final d = build(tv, pairing: const Duration(milliseconds: 300));
+    await expectLater(d.connect().timeout(const Duration(seconds: 2)),
+        throwsA(isA<PairingDenied>()));
+  });
+
+  test('missing_key_ack_is_detected_and_the_next_press_reconnects', () async {
+    final d = build(tv);
+    final states = <TvConnectionState>[];
+    d.state.listen(states.add);
+    await d.connect();
+    tv.ackKeys = false;
+    await d.sendKey(TvKey.volumeUp);
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    expect(states.last, isA<Disconnected>());
+    tv.ackKeys = true;
+    await d.sendKey(TvKey.volumeUp);
+    expect(tv.transports.length, 2);
+  });
+
+  test('acknowledged_keys_keep_the_connection_alive', () async {
+    final d = build(tv);
+    final states = <TvConnectionState>[];
+    d.state.listen(states.add);
+    await d.connect();
+    await d.sendKey(TvKey.volumeUp);
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+    expect(states.last, isA<Connected>());
+    expect(tv.transports.length, 1);
+  });
+
+  test('denied_after_connect_is_reported_and_the_next_press_retries', () async {
+    final d = build(tv);
+    final states = <TvConnectionState>[];
+    d.state.listen(states.add);
+    await d.connect();
+    tv.transports.first.push(legacyFrame([0x64, 0, 0, 0]));
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    expect(states.last, isA<Failed>());
+    expect((states.last as Failed).error, isA<PairingDenied>());
+    await d.sendKey(TvKey.volumeUp);
+    expect(tv.transports.length, 2);
+  });
+
+  test('denied_message_says_what_to_do_when_no_prompt_appears', () async {
+    tv.mode = LegacyMode.deny;
+    await expectLater(
+        build(tv).connect(),
+        throwsA(isA<PairingDenied>()
+            .having((e) => e.message, 'message', contains('If no prompt appears'))));
+  });
+
+  test('unreachable_message_admits_some_2014_2015_models_are_unsupported', () async {
+    tv.openFails = true;
+    await expectLater(
+        build(tv).connect(),
+        throwsA(isA<TvConnectionError>()
+            .having((e) => e.message, 'message', contains('2014'))));
   });
 }

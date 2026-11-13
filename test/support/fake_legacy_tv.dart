@@ -8,12 +8,13 @@ List<int> legacyFrame(List<int> resp, {String name = 'TV'}) {
   return [0x00, n.length & 0xff, n.length >> 8, ...n, resp.length & 0xff, resp.length >> 8, ...resp];
 }
 
-enum LegacyMode { grant, waitThenGrant, deny, cancel, silent, waitThenSilence, garbage }
+enum LegacyMode { grant, waitThenGrant, deny, cancel, silent, waitThenSilence, repeatWaiting, garbage }
 
 /// A scripted pre-2016 Samsung TV.
 class FakeLegacyTv {
   LegacyMode mode = LegacyMode.grant;
   bool openFails = false;
+  bool ackKeys = true; // false: the TV never acknowledges key presses
   bool chunked = false; // deliver replies one byte at a time
   Duration openDelay = Duration.zero;
   final List<FakeByteTransport> transports = [];
@@ -76,7 +77,7 @@ class FakeByteTransport implements ByteTransport {
   void send(List<int> data) {
     sent.add(data);
     if (sent.length > 1) {
-      push(legacyFrame([0, 0, 0, 0])); // key accepted
+      if (tv.ackKeys) push(legacyFrame([0, 0, 0, 0])); // key accepted
       return;
     }
     switch (tv.mode) {
@@ -87,6 +88,14 @@ class FakeByteTransport implements ByteTransport {
         push(legacyFrame([0x0a, 0]));
       case LegacyMode.deny:
         push(legacyFrame([0x64, 0, 0, 0]));
+      case LegacyMode.repeatWaiting:
+        Timer.periodic(const Duration(milliseconds: 50), (timer) {
+          if (!_open || _controller.isClosed) {
+            timer.cancel();
+            return;
+          }
+          _controller.add(legacyFrame([0x0a, 0]));
+        });
       case LegacyMode.cancel:
         push(legacyFrame([0x65, 0]));
       case LegacyMode.garbage:

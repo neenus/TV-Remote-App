@@ -76,12 +76,14 @@ Unverified on real hardware: the protocol comes from community documentation.
 
 ---
 
-# Samsung 2015 or older (legacy protocol, TCP port 55000)
+# Samsung older than 2016 (legacy protocol, TCP port 55000)
+
+This protocol is what roughly 2010-2013 Samsung TVs speak. Many 2014-2015 (H and J series) models use a different, encrypted pairing protocol that the app does not support yet; if yours is one of those, the app will say it could not reach the TV on port 55000.
 
 Unverified on real hardware. The packet formats were checked against the public samsungctl source, but not against a TV.
 
 **Pairing**
-- [ ] Add by IP, choosing "Samsung (2015 or older)" (the scan cannot tell old from new Samsungs).
+- [ ] Add by IP, choosing "Samsung (older, pre-2016)" (the scan cannot tell old from new Samsungs).
 - [ ] The first time, the TV shows an Allow / Deny box for "TV Remote". You must press Allow with the TV's own remote.
 - [ ] After allowing, the remote opens. Close the app and reopen: it connects without another prompt (the TV remembers the device).
 - [ ] Deny shows a Retry screen with a message that tells you to choose Allow on the TV.

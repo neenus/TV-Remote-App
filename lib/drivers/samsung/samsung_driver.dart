@@ -167,8 +167,8 @@ class SamsungDriver implements TvDriver {
       }
     }
     throw const TvConnectionError(
-        'Could not reach the TV. If it is from 2015 or older, remove it and add it again '
-        'by IP, choosing "Samsung (2015 or older)".');
+        'Could not reach the TV. If it is an older Samsung (before 2016), add it by IP '
+        'and choose "Samsung (older, pre-2016)".');
   }
 
   Future<String?> _handshake(String? token) async {

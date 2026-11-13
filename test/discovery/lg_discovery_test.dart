@@ -83,6 +83,6 @@ void main() {
 
   test('brand_labels_distinguish_the_older_samsung_option', () {
     expect(brandLabel(TvBrand.samsung), 'Samsung');
-    expect(brandLabel(TvBrand.samsungLegacy), 'Samsung (2015 or older)');
+    expect(brandLabel(TvBrand.samsungLegacy), 'Samsung (older, pre-2016)');
   });
 }

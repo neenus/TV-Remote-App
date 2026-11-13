@@ -14,7 +14,10 @@ const _name = 'TV Remote';
 /// 1-byte length, 0x00, then the bytes (base64 first unless [raw]).
 List<int> _serialize(List<int> data, {bool raw = false}) {
   final bytes = raw ? data : utf8.encode(base64Encode(data));
-  assert(bytes.length < 256, 'legacy strings are length-prefixed with one byte');
+  if (bytes.length > 255) {
+    // Length-prefixed with one byte: never send a truncated, corrupt packet.
+    throw ArgumentError('legacy strings must fit in 255 bytes (got ${bytes.length})');
+  }
   return [bytes.length & 0xff, 0x00, ...bytes];
 }
 

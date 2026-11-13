@@ -35,4 +35,18 @@ void main() {
     final t = TcpTransport();
     t.send([1]);
   });
+
+  test('writing_after_the_peer_resets_the_connection_is_not_an_uncaught_error', () async {
+    final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+    server.listen((s) => s.destroy()); // accept, then drop the connection
+    final t = TcpTransport();
+    await t.open('127.0.0.1', server.port);
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    for (var i = 0; i < 5; i++) {
+      t.send(List.filled(200000, 1));
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+    await t.close();
+    await server.close();
+  });
 }

@@ -28,6 +28,10 @@ void main() {
     });
   });
 
+  test('oversize_key_names_are_rejected_not_silently_truncated', () {
+    expect(() => legacyKeyPacket('K' * 300), throwsArgumentError);
+  });
+
   group('LegacyKeyMap', () {
     test('every_tv_key_is_mapped', () {
       for (final k in TvKey.values) {

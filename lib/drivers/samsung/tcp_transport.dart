@@ -30,9 +30,14 @@ class TcpTransport implements ByteTransport {
       socket.destroy();
       throw StateError('Transport closed while opening');
     }
-    socket.setOption(SocketOption.tcpNoDelay, true);
-    _socket = socket;
+    _socket = socket; // stored first so close() can always reach it
+    try {
+      socket.setOption(SocketOption.tcpNoDelay, true);
+    } catch (_) {}
     _open = true;
+    // Write failures (e.g. the TV reset the connection) surface on `done`; handle
+    // them here so they never become uncaught errors.
+    unawaited(socket.done.then<void>((_) {}, onError: (Object _) {}));
     void finish() {
       _open = false;
       if (!_controller.isClosed) _controller.close();
