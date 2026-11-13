@@ -21,7 +21,7 @@ Future<void> handlePower({
     final mac = device.mac;
     if (mac == null) {
       throw const TvConnectionError(
-          'TV unreachable. No MAC saved; power on the TV once or add its MAC address.');
+          'TV unreachable. No MAC saved yet. On the TV list, press and hold this TV to add its MAC address.');
     }
     await wake(mac, device.host);
   }

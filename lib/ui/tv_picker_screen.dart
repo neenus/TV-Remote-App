@@ -5,6 +5,7 @@ import '../core/tv_device.dart';
 import '../discovery/discovery_state.dart';
 import '../providers.dart';
 import 'add_tv_dialog.dart';
+import 'mac_dialog.dart';
 import 'aurora_background.dart';
 import 'glass_panel.dart';
 import 'theme.dart';
@@ -21,6 +22,13 @@ class _TvPickerScreenState extends ConsumerState<TvPickerScreen> {
       .push(MaterialPageRoute<void>(builder: (_) => TvSession(device: d)))
       .then((_) => setState(() {}));
 
+  Future<void> _editMac(TvDevice d) async {
+    final mac = await showMacDialog(context, current: d.mac);
+    if (mac == null || !mounted) return;
+    await ref.read(tvRepositoryProvider).save(d.copyWith(mac: mac));
+    if (mounted) setState(() {});
+  }
+
   Future<void> _add() async {
     final d = await showAddTvDialog(context);
     if (d != null && mounted) _open(d);
@@ -30,6 +38,7 @@ class _TvPickerScreenState extends ConsumerState<TvPickerScreen> {
         padding: const EdgeInsets.only(bottom: 12),
         child: GestureDetector(
           onTap: () => _open(d),
+          onLongPress: saved ? () => _editMac(d) : null,
           child: GlassPanel(
             radius: 20,
             padding: const EdgeInsets.all(18),
@@ -41,6 +50,9 @@ class _TvPickerScreenState extends ConsumerState<TvPickerScreen> {
                   Text(d.name, style: const TextStyle(fontSize: 16)),
                   Text(d.host,
                       style: const TextStyle(color: AuroraColors.textSecondary, fontSize: 12)),
+                  if (saved && d.mac == null)
+                    const Text('No MAC address (press and hold to add)',
+                        style: TextStyle(color: AuroraColors.magenta, fontSize: 11)),
                 ]),
               ),
               if (saved)

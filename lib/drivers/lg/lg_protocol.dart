@@ -12,6 +12,7 @@ const _permissions = [
   'CONTROL_MOUSE_AND_KEYBOARD',
   'CONTROL_INPUT_TEXT',
   'LAUNCH',
+  'READ_NETWORK_STATE', // needed to ask the TV for its MAC address
   'READ_TV_CHANNEL_LIST',
 ];
 

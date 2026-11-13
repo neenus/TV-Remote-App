@@ -39,17 +39,13 @@ class _AddTvDialogState extends State<_AddTvDialog> {
       setState(() => _error = 'Enter a valid IP address');
       return;
     }
-    final mac = _mac.text.trim();
-    if (mac.isNotEmpty) {
-      try {
-        magicPacket(mac);
-      } on FormatException {
-        setState(() => _error = 'MAC should look like AA:BB:CC:DD:EE:FF');
-        return;
-      }
+    final raw = _mac.text.trim();
+    final mac = raw.isEmpty ? null : normalizeMac(raw);
+    if (raw.isNotEmpty && mac == null) {
+      setState(() => _error = 'MAC should look like AA:BB:CC:DD:EE:FF');
+      return;
     }
-    Navigator.pop(
-        context, manualDevice(host, brand: _brand).copyWith(mac: mac.isEmpty ? null : mac));
+    Navigator.pop(context, manualDevice(host, brand: _brand).copyWith(mac: mac));
   }
 
   @override

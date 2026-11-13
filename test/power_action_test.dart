@@ -39,6 +39,6 @@ void main() {
     await expectLater(
         handlePower(device: noMac, driver: UnreachableDriver(), wake: (_, _) async {}),
         throwsA(isA<TvConnectionError>()
-            .having((e) => e.message, 'message', contains('No MAC saved'))));
+            .having((e) => e.message, 'message', allOf(contains('No MAC saved'), contains('press and hold')))));
   });
 }

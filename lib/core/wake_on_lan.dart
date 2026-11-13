@@ -1,6 +1,17 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+/// The MAC in the usual AA:BB:CC:DD:EE:FF form, or null if it isn't one.
+String? normalizeMac(String raw) {
+  final mac = raw.trim();
+  try {
+    magicPacket(mac);
+  } on FormatException {
+    return null;
+  }
+  return mac.replaceAll('-', ':').toUpperCase();
+}
+
 Uint8List magicPacket(String mac) {
   final parts = mac.split(RegExp(r'[:-]'));
   if (parts.length != 6) throw FormatException('Invalid MAC address', mac);

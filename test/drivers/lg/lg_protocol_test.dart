@@ -134,6 +134,12 @@ void main() {
     expect(LgKeyMap.payload(TvKey.volumeUp), isNull);
   });
 
+  test('register_requests_the_network_state_permission_needed_to_read_the_mac', () {
+    final m = jsonDecode(registerMessage()) as Map;
+    final perms = ((m['payload'] as Map)['manifest'] as Map)['permissions'] as List;
+    expect(perms, contains('READ_NETWORK_STATE'));
+  });
+
   test('register_requests_the_launch_permission', () {
     final m = jsonDecode(registerMessage()) as Map;
     final perms = ((m['payload'] as Map)['manifest'] as Map)['permissions'] as List;

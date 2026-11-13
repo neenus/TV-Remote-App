@@ -569,4 +569,64 @@ void main() {
     expect(scans, 0, reason: 'a manually added TV cannot be re-found by the scan');
     expect(find.text('Retry'), findsOneWidget);
   });
+
+  group('setting a MAC address by hand', () {
+    Future<List<TvDevice>> savedAfter(WidgetTester tester) async =>
+        ProviderScope.containerOf(tester.element(find.byType(App)))
+            .read(tvRepositoryProvider)
+            .all();
+
+    testWidgets('a_tv_without_a_mac_says_how_to_add_one', (tester) async {
+      await tester.pumpWidget(await app(savedTvs: [saved]));
+      await tester.pump();
+      expect(find.text('No MAC address (press and hold to add)'), findsOneWidget);
+    });
+
+    testWidgets('a_tv_with_a_mac_does_not_show_that_hint', (tester) async {
+      const withMac = TvDevice(
+          id: 's1', name: 'Saved TV', brand: TvBrand.lg, host: '10.0.0.2', mac: 'AA:BB:CC:DD:EE:FF');
+      await tester.pumpWidget(await app(savedTvs: [withMac]));
+      await tester.pump();
+      expect(find.textContaining('No MAC address'), findsNothing);
+    });
+
+    testWidgets('press_and_hold_saves_a_normalised_mac', (tester) async {
+      await tester.pumpWidget(await app(savedTvs: [saved]));
+      await tester.pump();
+      await tester.longPress(find.text('Saved TV'));
+      await tester.pumpAndSettle();
+      expect(find.text('MAC address'), findsOneWidget);
+      await tester.enterText(find.byType(TextField), 'aa-bb-cc-dd-ee-ff');
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+      expect((await savedAfter(tester)).single.mac, 'AA:BB:CC:DD:EE:FF');
+      expect(find.textContaining('No MAC address'), findsNothing);
+    });
+
+    testWidgets('a_bad_mac_shows_an_error_and_keeps_the_dialog_open', (tester) async {
+      await tester.pumpWidget(await app(savedTvs: [saved]));
+      await tester.pump();
+      await tester.longPress(find.text('Saved TV'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'nope');
+      await tester.tap(find.text('Save'));
+      await tester.pump();
+      expect(find.text('MAC should look like AA:BB:CC:DD:EE:FF'), findsOneWidget);
+      expect((await savedAfter(tester)).single.mac, isNull);
+    });
+
+    testWidgets('cancel_changes_nothing_and_an_existing_mac_is_prefilled', (tester) async {
+      const withMac = TvDevice(
+          id: 's1', name: 'Saved TV', brand: TvBrand.lg, host: '10.0.0.2', mac: 'AA:BB:CC:DD:EE:FF');
+      await tester.pumpWidget(await app(savedTvs: [withMac]));
+      await tester.pump();
+      await tester.longPress(find.text('Saved TV'));
+      await tester.pumpAndSettle();
+      expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, 'AA:BB:CC:DD:EE:FF');
+      await tester.enterText(find.byType(TextField), '11:22:33:44:55:66');
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect((await savedAfter(tester)).single.mac, 'AA:BB:CC:DD:EE:FF');
+    });
+  });
 }
