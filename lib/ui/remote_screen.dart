@@ -63,7 +63,7 @@ class _RemoteScreenState extends State<RemoteScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => KeyboardSheet(
-        showHint: !_tvHasTextField,
+        showHint: !_tvHasTextField && driver.capabilities.announcesKeyboard,
         onInsert: (t) => _run(() => driver.sendText(t)),
         onDelete: (n) => _run(() => driver.deleteText(n)),
         onEnter: () => _run(driver.sendEnter),

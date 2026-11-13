@@ -521,4 +521,21 @@ void main() {
     await tester.pump();
     expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, isEmpty);
   });
+
+  testWidgets('add_dialog_offers_fire_tv', (tester) async {
+    TvDevice? created;
+    await tester.pumpWidget(await app(driver: (d) {
+      created = d;
+      return FakeDriver();
+    }));
+    await tester.pump();
+    await tester.tap(find.text('Add by IP'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Fire TV'));
+    await tester.pump();
+    await tester.enterText(find.byType(TextField).first, '10.0.0.8');
+    await tester.tap(find.text('Connect'));
+    await tester.pumpAndSettle();
+    expect(created?.brand, TvBrand.fireTv);
+  });
 }

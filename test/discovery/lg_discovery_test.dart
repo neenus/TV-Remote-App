@@ -85,5 +85,7 @@ void main() {
     expect(brandLabel(TvBrand.samsung), 'Samsung (2016 or newer)');
     expect(brandLabel(TvBrand.samsungEncrypted), 'Samsung (2014-2015)');
     expect(brandLabel(TvBrand.samsungLegacy), 'Samsung (2013 or older)');
+    expect(brandLabel(TvBrand.fireTv), 'Fire TV');
+    expect(manualDevice('10.0.0.8', brand: TvBrand.fireTv).name, 'Fire TV (10.0.0.8)');
   });
 }

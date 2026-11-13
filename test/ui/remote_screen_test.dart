@@ -171,6 +171,16 @@ void main() {
       expect(find.textContaining('own keyboard'), findsOneWidget);
     });
 
+    testWidgets('no_text_field_warning_when_the_tv_never_announces_them', (tester) async {
+      final d = FakeDriver(
+          capabilities: TvCapabilities(TvKey.values.toSet(), announcesKeyboard: false));
+      await tester.pumpWidget(screen(d));
+      await tester.tap(find.byKey(const Key('open-keyboard')));
+      await tester.pumpAndSettle();
+      expect(find.text('Type on your TV'), findsOneWidget);
+      expect(find.textContaining('own keyboard'), findsNothing);
+    });
+
     testWidgets('tv_opened_keyboard_has_no_warning', (tester) async {
       final d = FakeDriver();
       await tester.pumpWidget(screen(d));

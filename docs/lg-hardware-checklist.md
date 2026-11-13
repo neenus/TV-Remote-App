@@ -127,3 +127,35 @@ Built from the samsungtvws library and verified against it with test vectors, bu
 - [ ] Leave the remote open for several minutes without touching it, then press a key: it still works (the app reconnects by itself if the connection dropped).
 - [ ] With the TV unplugged, connecting gives a clear error within about 10 seconds.
 - [ ] Note any step where the TV shows nothing or the app shows an unexpected message.
+
+---
+
+# Fire TV (ADB over Wi-Fi)
+
+Built from the ADB protocol and verified against the adb_shell library with test vectors (message framing, key blob, token signing). **Never tried on a real Fire TV yet.**
+
+**Set up the Fire TV once**
+1. On the Fire TV: Settings > My Fire TV > About, then click the Fire TV Stick's name **seven times** until it says you are a developer (this reveals Developer options).
+2. Settings > My Fire TV > Developer options > turn **ADB debugging** ON.
+3. Your phone must be on the same network as the Fire TV (it can reach the IoT network if your router allows it).
+
+**Pairing**
+- [ ] Add by IP, choosing **Fire TV**.
+- [ ] The first time, the app may take a few seconds to make its security key ("Connecting…"), then the Fire TV shows **"Allow USB debugging?"**. Tick "Always allow" and choose **OK** with the Fire TV's own remote. The app shows "Accept the prompt on your TV".
+- [ ] After OK the remote opens. Close and reopen the app: it connects without a prompt.
+- [ ] With ADB debugging off, the app explains how to switch it on.
+
+**Keys**
+- [ ] D-pad, OK, back, home, menu work. Rewind, play, pause, fast-forward work in a video app.
+- [ ] Power puts the stick to sleep / wakes it.
+- [ ] Volume and mute change the stick's volume (they only affect the TV if your setup passes them on).
+- [ ] The Input button and channel buttons are greyed out (not available on Fire TV).
+- [ ] Hold the d-pad or volume: it keeps working without lag building up (one command at a time).
+
+**Typing (new: works on Fire TV)**
+- [ ] In a search box on the Fire TV, open the keyboard icon (top of the remote) and type: the text appears on the TV; backspace deletes; Enter submits.
+- [ ] Note any characters that don't type (only plain ASCII is supported).
+
+**Resilience**
+- [ ] Put the stick to sleep and wake it: the next button press reconnects.
+- [ ] Note any step where the Fire TV or the app shows something unexpected.

@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tv_remote/core/tv_device.dart';
 import 'package:tv_remote/drivers/lg/lg_driver.dart';
+import 'package:tv_remote/drivers/fire_tv/fire_tv_driver.dart';
 import 'package:tv_remote/drivers/samsung/samsung_driver.dart';
 import 'package:tv_remote/drivers/samsung/samsung_encrypted_driver.dart';
 import 'package:tv_remote/drivers/samsung/samsung_legacy_driver.dart';
@@ -24,5 +25,7 @@ void main() {
     expect(make(legacy), isA<SamsungLegacyDriver>());
     const encrypted = TvDevice(id: 'd', name: 'D', brand: TvBrand.samsungEncrypted, host: 'h');
     expect(make(encrypted), isA<SamsungEncryptedDriver>());
+    const fire = TvDevice(id: 'e', name: 'E', brand: TvBrand.fireTv, host: 'h');
+    expect(make(fire), isA<FireTvDriver>());
   });
 }

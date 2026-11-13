@@ -6,7 +6,8 @@ import 'tv_key.dart';
 class FakeDriver implements TvDriver {
   FakeDriver({TvCapabilities? capabilities})
       : capabilities =
-            capabilities ?? TvCapabilities(TvKey.values.toSet(), pairingChoice: true);
+            capabilities ??
+                TvCapabilities(TvKey.values.toSet(), pairingChoice: true, announcesKeyboard: true);
 
   final List<TvKey> sent = [];
   final _keyboard = StreamController<bool>.broadcast();

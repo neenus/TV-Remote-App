@@ -15,12 +15,14 @@ String brandLabel(TvBrand b) => switch (b) {
       TvBrand.samsung => 'Samsung (2016 or newer)',
       TvBrand.samsungEncrypted => 'Samsung (2014-2015)',
       TvBrand.samsungLegacy => 'Samsung (2013 or older)',
+      TvBrand.fireTv => 'Fire TV',
     };
 
 /// The brand as it appears in a TV's name.
 String brandName(TvBrand b) => switch (b) {
       TvBrand.lg => 'LG',
       TvBrand.samsung || TvBrand.samsungEncrypted || TvBrand.samsungLegacy => 'Samsung',
+      TvBrand.fireTv => 'Fire', // names are built as "<brand> TV"
     };
 
 TvDevice? parseSsdpResponse(String raw) {
