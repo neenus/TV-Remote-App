@@ -10,6 +10,7 @@ class AdbCommand {
   static const okay = 0x59414b4f;
   static const clse = 0x45534c43;
   static const wrte = 0x45545257;
+  static const stls = 0x534c5453; // TLS upgrade (wireless-debugging pairing)
 }
 
 const adbVersion = 0x01000000;
@@ -79,6 +80,22 @@ class AdbFrameParser {
 /// Data for an OPEN message that runs a shell command.
 Uint8List shellOpenData(String command) =>
     Uint8List.fromList([...utf8.encode('shell:$command'), 0]);
+
+/// Cuts [text] between every '%' and a following 's', because Android's
+/// `input text` turns the two-character sequence "%s" into a space and there is
+/// no way to escape it. Each piece goes in a separate command.
+List<String> splitForInput(String text) {
+  final parts = <String>[];
+  var start = 0;
+  for (var i = 0; i < text.length - 1; i++) {
+    if (text[i] == '%' && text[i + 1] == 's') {
+      parts.add(text.substring(start, i + 1));
+      start = i + 1;
+    }
+  }
+  if (start < text.length) parts.add(text.substring(start));
+  return parts;
+}
 
 String inputKeyeventCommand(List<int> keycodes) => 'input keyevent ${keycodes.join(' ')}';
 

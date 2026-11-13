@@ -43,6 +43,14 @@ void main() {
       expect(back?.d, key.d);
     });
 
+    test('rejects_keys_that_cannot_work', () {
+      expect(AdbKey.parse(key.serialize()), isNotNull);
+      expect(AdbKey.parse(AdbKey(key.n - BigInt.one, key.d).serialize()), isNull,
+          reason: 'even modulus');
+      expect(AdbKey.parse(AdbKey(key.n, key.d + BigInt.two).serialize()), isNull,
+          reason: 'private exponent does not match');
+    });
+
     test('rejects_garbage', () {
       for (final s in ['', 'x', 'zz:11', 'ab', 'ab:', ':ab', 'ab:cd:ef']) {
         expect(AdbKey.parse(s), isNull, reason: s);

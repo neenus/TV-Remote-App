@@ -348,7 +348,7 @@ void main() {
       final d = build();
       await d.connect();
       await d.sendText('a' * 250);
-      await Future<void>.delayed(const Duration(milliseconds: 60));
+      await Future<void>.delayed(const Duration(milliseconds: 200));
       expect(tv.commands.length, 3);
       expect(tv.commands.join().replaceAll(RegExp('[^a]'), '').length, 250);
     });
@@ -389,5 +389,155 @@ void main() {
     final d = build();
     await d.submitPairingPin('1234');
     expect(await d.fetchMacAddress(), isNull);
+  });
+
+  group('review fixes', () {
+    test('a_press_during_the_handshake_is_not_sent_before_authentication', () async {
+      tv
+        ..mode = AdbMode.knownKey
+        ..trustedKey = testKey;
+      final d = build(ack: const Duration(milliseconds: 150));
+      final states = <TvConnectionState>[];
+      d.state.listen(states.add);
+      await d.connect();
+      tv.transports.first.closeFromRemote();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      final a = d.sendKey(TvKey.up);
+      await Future<void>.delayed(const Duration(milliseconds: 3));
+      final b = d.sendKey(TvKey.down);
+      await Future.wait([a, b]);
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      final order = tv.transports.last.sent.map((m) => m.command).toList();
+      expect(order.indexOf(AdbCommand.open), greaterThan(order.indexOf(AdbCommand.auth)));
+      expect(tv.commands, ['input keyevent 19'], reason: 'first press sent, second dropped');
+      expect(states.last, isA<Connected>(), reason: 'no false disconnect');
+    });
+
+    test('typing_commands_run_one_at_a_time_in_order_and_neighbours_are_merged', () async {
+      tv.closeDelay = const Duration(milliseconds: 30);
+      final d = build();
+      await d.connect();
+      await d.sendText('a');
+      await d.sendText('b');
+      await d.sendText('c');
+      await d.deleteText(1);
+      await d.deleteText(2);
+      await d.sendEnter();
+      await d.sendText('x');
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      expect(tv.commands, [
+        "input text 'a'",
+        "input text 'bc'",
+        'input keyevent 67 67 67',
+        'input keyevent 66',
+        "input text 'x'",
+      ]);
+      expect(tv.maxOpenStreams, 1);
+    });
+
+    test('a_percent_followed_by_s_is_never_sent_as_one_string', () async {
+      final d = build();
+      await d.connect();
+      await d.sendText('100%sure');
+      await d.sendText('50%');
+      await d.sendText('sure');
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+      // Neighbouring text is merged while waiting, but a '%' never meets an 's'.
+      expect(tv.commands, [
+        "input text '100%'",
+        "input text 'sure50%'",
+        "input text 'sure'",
+      ]);
+    });
+
+    test('a_quick_second_tap_is_kept_and_sent_when_the_first_finishes', () async {
+      tv.closeDelay = const Duration(milliseconds: 30);
+      final d = build(gate: const Duration(milliseconds: 500));
+      await d.connect();
+      await d.sendKey(TvKey.down);
+      await d.sendKey(TvKey.up);
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      expect(tv.commands, ['input keyevent 20', 'input keyevent 19']);
+    });
+
+    test('while_one_is_running_only_the_latest_waiting_press_is_kept', () async {
+      tv.closeDelay = const Duration(milliseconds: 30);
+      final d = build(gate: const Duration(milliseconds: 500));
+      await d.connect();
+      await d.sendKey(TvKey.down);
+      await d.sendKey(TvKey.down);
+      await d.sendKey(TvKey.up);
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      expect(tv.commands, ['input keyevent 20', 'input keyevent 19']);
+    });
+
+    test('a_lost_close_cannot_block_the_waiting_press_forever', () async {
+      tv.neverClose = true;
+      final d = build(gate: const Duration(milliseconds: 60));
+      await d.connect();
+      await d.sendKey(TvKey.down);
+      await d.sendKey(TvKey.up);
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      expect(tv.commands, ['input keyevent 20', 'input keyevent 19']);
+    });
+
+    test('the_key_survives_a_disposed_session_and_is_shared_between_drivers', () async {
+      await keys.delete('adb-key');
+      Future<AdbKey> slow() async {
+        keysMade++;
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+        return testKey;
+      }
+
+      final d1 = build(makeKey: slow);
+      final first = d1.connect().then<void>((_) {}, onError: (Object _) {});
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await d1.dispose();
+      await first;
+      await build(makeKey: slow).connect();
+      expect(keysMade, 1);
+      expect(await keys.read('adb-key'), isNotNull);
+    });
+
+    test('with_broken_storage_new_drivers_still_reuse_the_same_key', () async {
+      final store = ThrowingKeyStore();
+      await build(store: store).connect();
+      await build(store: store).connect();
+      expect(keysMade, 1);
+    });
+
+    test('a_device_that_wants_tls_pairing_gets_a_clear_message', () async {
+      tv.mode = AdbMode.stls;
+      await expectLater(
+          build().connect(),
+          throwsA(isA<TvConnectionError>()
+              .having((e) => e.message, 'message', contains('wireless'))));
+    });
+
+    test('output_for_an_unknown_stream_is_closed', () async {
+      final d = build();
+      await d.connect();
+      tv.transports.first.reply(AdbCommand.wrte, 7, 999, const [1]);
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      expect(tv.closesFromClient, 1);
+    });
+
+    test('losing_trust_later_says_to_reopen_and_tick_always_allow', () async {
+      final d = build();
+      await d.connect();
+      tv.mode = AdbMode.unknownKey;
+      tv.transports.first.closeFromRemote();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await expectLater(
+          d.sendKey(TvKey.up),
+          throwsA(isA<PairingDenied>()
+              .having((e) => e.message, 'message', contains('Always allow'))));
+    });
+
+    test('capabilities_ask_for_ascii_typing_and_a_pairing_note', () {
+      final c = build().capabilities;
+      expect(c.asciiOnlyTyping, isTrue);
+      expect(c.pairingNote, contains('Always allow'));
+    });
   });
 }

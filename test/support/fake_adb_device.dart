@@ -6,7 +6,7 @@ import 'package:tv_remote/drivers/fire_tv/adb_auth.dart';
 import 'package:tv_remote/drivers/fire_tv/adb_protocol.dart';
 import 'package:tv_remote/drivers/samsung/tcp_transport.dart';
 
-enum AdbMode { trusted, knownKey, unknownKey, silent }
+enum AdbMode { trusted, knownKey, unknownKey, silent, stls }
 
 /// A scripted Fire TV speaking ADB over TCP.
 class FakeAdbDevice {
@@ -20,6 +20,9 @@ class FakeAdbDevice {
   bool neverAckOpen = false; // never answers OPEN with OKAY
   bool neverClose = false; // never ends a shell stream with CLSE
   bool output = false; // writes some output before closing
+  Duration closeDelay = const Duration(milliseconds: 5); // how long a shell command "runs"
+  int openStreams = 0;
+  int maxOpenStreams = 0;
   final List<FakeAdbTransport> transports = [];
   final List<String> commands = []; // shell commands received
   final List<Uint8List> publicKeysSeen = [];
@@ -105,6 +108,8 @@ class FakeAdbTransport implements ByteTransport {
             reply(AdbCommand.auth, 1, 0, FakeAdbDevice.token);
           case AdbMode.silent:
             break;
+          case AdbMode.stls:
+            reply(0x534c5453, 0x01000000, 0);
         }
       case AdbCommand.auth:
         if (m.arg0 == 2) {
@@ -130,7 +135,16 @@ class FakeAdbTransport implements ByteTransport {
         device.commands.add(text.startsWith('shell:') ? text.substring(6) : text);
         if (!device.neverAckOpen) reply(AdbCommand.okay, 100 + local, local);
         if (device.output) reply(AdbCommand.wrte, 100 + local, local, utf8.encode('out'));
-        if (!device.neverClose) reply(AdbCommand.clse, 100 + local, local);
+        device.openStreams++;
+        if (device.openStreams > device.maxOpenStreams) device.maxOpenStreams = device.openStreams;
+        if (!device.neverClose) {
+          Timer(device.closeDelay, () {
+            device.openStreams--;
+            if (!_controller.isClosed) {
+              _controller.add(encodeAdbMessage(AdbCommand.clse, 100 + local, local, const []));
+            }
+          });
+        }
       case AdbCommand.okay:
         device.okaysFromClient++;
       case AdbCommand.clse:

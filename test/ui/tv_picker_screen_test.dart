@@ -538,4 +538,35 @@ void main() {
     await tester.pumpAndSettle();
     expect(created?.brand, TvBrand.fireTv);
   });
+
+  testWidgets('a_pairing_note_from_the_driver_is_shown_while_waiting', (tester) async {
+    final d = ScriptedDriver((d) async {
+      d.emit(const AwaitingPairing());
+      await Completer<void>().future;
+    }, capabilities: TvCapabilities(TvKey.values.toSet(), pairingNote: 'Tick Always allow.'));
+    await tester.pumpWidget(await app(savedTvs: [saved], driver: (_) => d));
+    await tester.pump();
+    await tester.tap(find.text('Saved TV'));
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('Accept the prompt on your TV'), findsOneWidget);
+    expect(find.text('Tick Always allow.'), findsOneWidget);
+  });
+
+  testWidgets('a_tv_added_by_ip_is_not_searched_for_when_it_cannot_be_reached',
+      (tester) async {
+    var scans = 0;
+    await tester.pumpWidget(await app(
+        savedTvs: [manualDevice('10.0.0.8')],
+        rediscover: () {
+          scans++;
+          return const Stream.empty();
+        },
+        driver: (_) => ScriptedDriver((d) async => throw const TvConnectionError())));
+    await tester.pump();
+    await tester.tap(find.textContaining('10.0.0.8').first);
+    await tester.pumpAndSettle();
+    expect(scans, 0, reason: 'a manually added TV cannot be re-found by the scan');
+    expect(find.text('Retry'), findsOneWidget);
+  });
 }

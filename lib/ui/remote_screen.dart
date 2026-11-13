@@ -64,6 +64,7 @@ class _RemoteScreenState extends State<RemoteScreen> {
       backgroundColor: Colors.transparent,
       builder: (_) => KeyboardSheet(
         showHint: !_tvHasTextField && driver.capabilities.announcesKeyboard,
+        asciiOnly: driver.capabilities.asciiOnlyTyping,
         onInsert: (t) => _run(() => driver.sendText(t)),
         onDelete: (n) => _run(() => driver.deleteText(n)),
         onEnter: () => _run(driver.sendEnter),

@@ -74,7 +74,18 @@ void main() {
     });
   });
 
+  test('the_stls_command_code_is_known', () {
+    expect(AdbCommand.stls, 0x534c5453);
+  });
+
   group('shell commands', () {
+    test('text_is_split_so_a_percent_never_meets_an_s', () {
+      expect(splitForInput('100%sure'), ['100%', 'sure']);
+      expect(splitForInput('a%b'), ['a%b']);
+      expect(splitForInput('%s%s'), ['%', 's%', 's']);
+      expect(splitForInput(''), isEmpty);
+    });
+
     test('keyevent', () => expect(inputKeyeventCommand([24]), 'input keyevent 24'));
     test('several_keyevents', () => expect(inputKeyeventCommand([67, 67]), 'input keyevent 67 67'));
 

@@ -20,6 +20,12 @@ const _adbOffMessage = 'Could not reach the Fire TV on port 5555. Turn on ADB de
 const _deniedMessage = 'The Fire TV did not allow the connection. Retry, and choose OK on the '
     'Fire TV when it asks to allow debugging (tick "Always allow").';
 
+const _untrustedMessage = 'The Fire TV needs to approve this phone again. Go back, open it '
+    'again, and tick "Always allow" in the box that appears.';
+
+const _pairingNote =
+    'Choose OK on the Fire TV and tick "Always allow", so it does not ask again.';
+
 /// Android key codes for the buttons a Fire TV can act on.
 class FireTvKeyMap {
   static int? code(TvKey k) => switch (k) {
@@ -44,11 +50,24 @@ class FireTvKeyMap {
 }
 
 class _Stream {
-  _Stream(this.local, {required this.isKey});
+  _Stream(this.local);
   final int local;
-  final bool isKey;
   int? remote;
 }
+
+sealed class _TypingOp {}
+
+class _TextOp extends _TypingOp {
+  _TextOp(this.text);
+  String text;
+}
+
+class _DeleteOp extends _TypingOp {
+  _DeleteOp(this.count);
+  int count;
+}
+
+class _EnterOp extends _TypingOp {}
 
 /// Amazon Fire TV over ADB (Android Debug Bridge) on port 5555.
 class FireTvDriver implements TvDriver {
@@ -61,9 +80,14 @@ class FireTvDriver implements TvDriver {
     this.pairingTimeout = const Duration(seconds: 60),
     this.ackTimeout = const Duration(seconds: 3),
     this.keyGate = const Duration(seconds: 1),
+    this.typingGate = const Duration(seconds: 2),
   }) : _makeKey = makeKey ?? generateAdbKey;
 
   static const _keyId = 'adb-key';
+
+  // One key per key store for the whole app run: making one takes seconds, and a
+  // session being closed (or storage failing) must not make us start over.
+  static final _keyMemo = Expando<Future<AdbKey>>('adb key');
 
   final TvDevice device;
   final KeyStore _keys;
@@ -76,8 +100,11 @@ class FireTvDriver implements TvDriver {
   /// connection is considered dead.
   final Duration ackTimeout;
 
-  /// A key command still running blocks further key presses for at most this long.
+  /// A key command still running holds back the next one for at most this long.
   final Duration keyGate;
+
+  /// Same for a typing command.
+  final Duration typingGate;
 
   final _states = StreamController<TvConnectionState>.broadcast();
   ByteTransport? _transport;
@@ -87,20 +114,30 @@ class FireTvDriver implements TvDriver {
   Timer? _timer;
   Timer? _ackTimer;
   int _pendingAcks = 0;
+  bool _online = false; // handshake finished: commands may be sent
   bool _signed = false;
   bool _sentKey = false;
   bool _allowPairing = true;
   bool _disposed = false;
-  AdbKey? _key; // kept in memory so storage trouble can't force a new key
   final _streams = <int, _Stream>{};
   int _nextLocal = 1;
+
+  // Key presses: one in flight, at most one (the latest) waiting.
   int? _keyStream;
-  DateTime? _keyStreamStart;
+  Timer? _keyTimer;
+  int? _pendingKey;
+
+  // Typing: strictly one command at a time, in order, neighbours merged.
+  final _typing = <_TypingOp>[];
+  int? _typingStream;
+  Timer? _typingTimer;
 
   @override
   TvCapabilities get capabilities => TvCapabilities(
         TvKey.values.where((k) => FireTvKeyMap.code(k) != null).toSet(),
         typing: true,
+        asciiOnlyTyping: true,
+        pairingNote: _pairingNote,
       );
 
   @override
@@ -144,10 +181,20 @@ class FireTvDriver implements TvDriver {
     }
   }
 
+  Future<AdbKey> _loadKey() {
+    final existing = _keyMemo[_keys];
+    if (existing != null) return existing;
+    final future = _loadOrCreateKey();
+    _keyMemo[_keys] = future;
+    // A failed attempt must not be remembered.
+    future.then<void>((_) {}, onError: (Object _) {
+      if (identical(_keyMemo[_keys], future)) _keyMemo[_keys] = null;
+    });
+    return future;
+  }
+
   // Storage must never be able to break control of the device.
-  Future<AdbKey> _loadKey() async {
-    final cached = _key;
-    if (cached != null) return cached;
+  Future<AdbKey> _loadOrCreateKey() async {
     AdbKey? key;
     try {
       final raw = await _keys.read(_keyId);
@@ -155,12 +202,11 @@ class FireTvDriver implements TvDriver {
     } catch (_) {}
     if (key == null) {
       key = await _makeKey(); // several seconds the first time
-      _checkDisposed();
       try {
         await _keys.write(_keyId, key.serialize());
       } catch (_) {}
     }
-    return _key = key;
+    return key;
   }
 
   Future<void> _closeQuietly(ByteTransport t) async {
@@ -199,6 +245,7 @@ class FireTvDriver implements TvDriver {
       transport.send(encodeAdbMessage(
           AdbCommand.cnxn, adbVersion, adbMaxData, utf8.encode('host::\x00')));
       await ready.future;
+      _online = true;
     } finally {
       _timer?.cancel();
       if (identical(_ready, ready)) _ready = null;
@@ -247,26 +294,35 @@ class FireTvDriver implements TvDriver {
       ready.complete();
       return;
     }
+    if (m.command == AdbCommand.stls) {
+      ready.completeError(const TvConnectionError(
+          'This Fire TV wants wireless-debugging pairing (TLS), which the app does not support yet.'));
+      return;
+    }
     if (m.command != AdbCommand.auth || m.arg0 != 1) return;
     if (m.data.length != 20) {
       ready.completeError(const TvConnectionError('Unexpected data from the Fire TV'));
       return;
     }
-    if (!_signed) {
-      _signed = true; // try the key we may already be trusted with
-      t.send(encodeAdbMessage(AdbCommand.auth, 2, 0, adbSignToken(key, m.data)));
-    } else if (!_sentKey) {
-      if (!_allowPairing) {
-        ready.completeError(const PairingDenied(
-            'This Fire TV no longer trusts the app. Remove it and add it again.'));
-        return;
+    try {
+      if (!_signed) {
+        _signed = true; // try the key we may already be trusted with
+        t.send(encodeAdbMessage(AdbCommand.auth, 2, 0, adbSignToken(key, m.data)));
+      } else if (!_sentKey) {
+        if (!_allowPairing) {
+          ready.completeError(const PairingDenied(_untrustedMessage));
+          return;
+        }
+        _sentKey = true; // unknown key: the device shows its Allow box
+        _emit(const AwaitingPairing());
+        t.send(encodeAdbMessage(AdbCommand.auth, 3, 0, adbPublicKeyPayload(key)));
+        _startTimer(pairingTimeout, ready, const PairingDenied('Pairing timed out'));
+      } else {
+        ready.completeError(const PairingDenied(_deniedMessage));
       }
-      _sentKey = true; // unknown key: the device shows its Allow box
-      _emit(const AwaitingPairing());
-      t.send(encodeAdbMessage(AdbCommand.auth, 3, 0, adbPublicKeyPayload(key)));
-      _startTimer(pairingTimeout, ready, const PairingDenied('Pairing timed out'));
-    } else {
-      ready.completeError(const PairingDenied(_deniedMessage));
+    } catch (_) {
+      ready.completeError(const TvConnectionError(
+          'The app\'s security key could not be used. Remove the Fire TV and add it again.'));
     }
   }
 
@@ -279,13 +335,23 @@ class FireTvDriver implements TvDriver {
           _onAck();
         }
       case AdbCommand.wrte:
-        _send(t, AdbCommand.okay, m.arg1, m.arg0); // output we don't need, but must acknowledge
+        // Output we don't need: acknowledge it (or close a stream we don't know).
+        _send(t, _streams.containsKey(m.arg1) ? AdbCommand.okay : AdbCommand.clse, m.arg1, m.arg0);
       case AdbCommand.clse:
         final s = _streams.remove(m.arg1);
         if (s == null) return;
         if (s.remote == null) _onAck(); // refused before it was acknowledged
-        if (_keyStream == s.local) _keyStream = null;
         _send(t, AdbCommand.clse, s.local, m.arg0);
+        if (_keyStream == s.local) {
+          _keyStream = null;
+          _keyTimer?.cancel();
+          _flushPendingKey();
+        }
+        if (_typingStream == s.local) {
+          _typingStream = null;
+          _typingTimer?.cancel();
+          _pumpTyping();
+        }
     }
   }
 
@@ -329,12 +395,18 @@ class FireTvDriver implements TvDriver {
   }
 
   Future<void> _teardown() async {
+    _online = false;
     _timer?.cancel();
     _ackTimer?.cancel();
     _ackTimer = null;
     _pendingAcks = 0;
     _streams.clear();
+    _keyTimer?.cancel();
     _keyStream = null;
+    _pendingKey = null;
+    _typingTimer?.cancel();
+    _typingStream = null;
+    _typing.clear();
     final transport = _transport, sub = _sub;
     _transport = null;
     _sub = null;
@@ -344,7 +416,7 @@ class FireTvDriver implements TvDriver {
     } catch (_) {}
   }
 
-  bool get _alive => _transport?.isOpen ?? false;
+  bool get _alive => _online && (_transport?.isOpen ?? false);
 
   /// Reconnects (never pairing: there'd be no screen to confirm on). Returns true
   /// if another press was already reconnecting, in which case this press is dropped.
@@ -355,22 +427,21 @@ class FireTvDriver implements TvDriver {
     return joining;
   }
 
-  void _runShell(String command, {bool isKey = false}) {
+  int _runShell(String command) {
     final transport = _transport;
-    if (transport == null) throw const TvConnectionError();
+    if (transport == null || !_online) throw const TvConnectionError();
     final local = _nextLocal++;
-    _streams[local] = _Stream(local, isKey: isKey);
-    if (isKey) {
-      _keyStream = local;
-      _keyStreamStart = DateTime.now();
-    }
+    _streams[local] = _Stream(local);
     try {
       transport.send(encodeAdbMessage(AdbCommand.open, local, 0, shellOpenData(command)));
     } catch (_) {
       throw const TvConnectionError();
     }
     _expectAck();
+    return local;
   }
+
+  // ---- key presses -------------------------------------------------------
 
   @override
   Future<void> sendKey(TvKey key) async {
@@ -380,39 +451,99 @@ class FireTvDriver implements TvDriver {
     // than letting queued presses all fire at once on reconnect.
     if (await _ensureAlive()) return;
     // Each `input` call starts a process on the device, so held keys would pile up:
-    // allow one key command at a time (a lost reply can block for at most [keyGate]).
-    if (_keyStream != null &&
-        DateTime.now().difference(_keyStreamStart ?? DateTime.now()) < keyGate) {
+    // one runs at a time and only the latest press waits for its turn.
+    if (_keyStream != null) {
+      _pendingKey = code;
       return;
     }
-    _runShell(inputKeyeventCommand([code]), isKey: true);
+    _sendKeyNow(code);
+  }
+
+  void _sendKeyNow(int code) {
+    final id = _runShell(inputKeyeventCommand([code]));
+    _keyStream = id;
+    // A lost reply must not block the keys for ever.
+    _keyTimer = Timer(keyGate, () {
+      _keyStream = null;
+      _flushPendingKey();
+    });
+  }
+
+  void _flushPendingKey() {
+    final code = _pendingKey;
+    if (code == null || !_online || _keyStream != null) return;
+    _pendingKey = null;
+    _sendKeyNow(code);
+  }
+
+  // ---- typing ------------------------------------------------------------
+
+  void _enqueue(_TypingOp op) {
+    final last = _typing.isEmpty ? null : _typing.last;
+    if (last is _TextOp &&
+        op is _TextOp &&
+        !(last.text.endsWith('%') && op.text.startsWith('s'))) {
+      last.text += op.text; // neighbouring text goes in one command
+    } else if (last is _DeleteOp && op is _DeleteOp) {
+      last.count += op.count;
+    } else {
+      _typing.add(op);
+    }
+    _pumpTyping();
+  }
+
+  void _pumpTyping() {
+    while (_typingStream == null && _typing.isNotEmpty && _online) {
+      final op = _typing.first;
+      String? command;
+      switch (op) {
+        case _TextOp():
+          final runes = op.text.runes.toList();
+          final take = min(100, runes.length);
+          final piece = String.fromCharCodes(runes.sublist(0, take));
+          if (take < runes.length) {
+            op.text = String.fromCharCodes(runes.sublist(take));
+          } else {
+            _typing.removeAt(0);
+          }
+          command = inputTextCommand(piece);
+        case _DeleteOp():
+          final n = min(op.count, 50);
+          op.count -= n;
+          if (op.count <= 0) _typing.removeAt(0);
+          command = inputKeyeventCommand(List.filled(n, 67));
+        case _EnterOp():
+          _typing.removeAt(0);
+          command = inputKeyeventCommand([66]);
+      }
+      if (command == null) continue; // nothing in it could be typed: next one
+      _typingStream = _runShell(command);
+      _typingTimer?.cancel();
+      _typingTimer = Timer(typingGate, () {
+        _typingStream = null;
+        _pumpTyping();
+      });
+    }
   }
 
   @override
   Future<void> sendText(String text) async {
     await _ensureAlive();
-    final runes = text.runes.toList();
-    for (var i = 0; i < runes.length; i += 100) {
-      final cmd = inputTextCommand(String.fromCharCodes(runes.sublist(i, min(i + 100, runes.length))));
-      if (cmd != null) _runShell(cmd);
+    for (final part in splitForInput(text)) {
+      _enqueue(_TextOp(part));
     }
   }
 
   @override
   Future<void> deleteText(int count) async {
     await _ensureAlive();
-    var left = count;
-    while (left > 0) {
-      final batch = min(left, 50);
-      _runShell(inputKeyeventCommand(List.filled(batch, 67)));
-      left -= batch;
-    }
+    if (count > 0) _enqueue(_DeleteOp(count));
   }
 
   @override
   Future<void> sendEnter() async {
     await _ensureAlive();
-    _runShell(inputKeyeventCommand([66]));
+    _enqueue(_EnterOp());
   }
 
   @override

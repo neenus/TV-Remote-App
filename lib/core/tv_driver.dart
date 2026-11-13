@@ -2,7 +2,11 @@ import 'tv_key.dart';
 
 class TvCapabilities {
   const TvCapabilities(this.keys,
-      {this.typing = true, this.pairingChoice = false, this.announcesKeyboard = false});
+      {this.typing = true,
+      this.pairingChoice = false,
+      this.announcesKeyboard = false,
+      this.asciiOnlyTyping = false,
+      this.pairingNote});
   final Set<TvKey> keys;
 
   /// Whether text typed on the phone can reach the TV (the keyboard panel).
@@ -15,6 +19,12 @@ class TvCapabilities {
   /// Whether the TV tells the app when a text field gets focus (so the typing
   /// panel can open by itself and a missing announcement is meaningful).
   final bool announcesKeyboard;
+
+  /// The TV can only type plain ASCII; the phone's text box should refuse the rest.
+  final bool asciiOnlyTyping;
+
+  /// Extra guidance shown while the user has to confirm something on the TV.
+  final String? pairingNote;
   bool supports(TvKey k) => keys.contains(k);
 }
 

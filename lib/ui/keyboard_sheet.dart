@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'text_diff.dart';
@@ -11,6 +12,7 @@ class KeyboardSheet extends StatefulWidget {
     required this.onDelete,
     required this.onEnter,
     this.showHint = false,
+    this.asciiOnly = false,
   });
 
   final void Function(String text) onInsert;
@@ -20,6 +22,9 @@ class KeyboardSheet extends StatefulWidget {
   /// Shown when the TV hasn't reported a text field (typing may not reach it).
   final bool showHint;
 
+  /// Refuse characters the TV cannot type (so the box never holds text the TV lacks).
+  final bool asciiOnly;
+
   @override
   State<KeyboardSheet> createState() => _KeyboardSheetState();
 }
@@ -27,6 +32,10 @@ class KeyboardSheet extends StatefulWidget {
 class _KeyboardSheetState extends State<KeyboardSheet> {
   final _controller = TextEditingController();
   String _last = '';
+
+  List<TextInputFormatter>? get asciiOnlyFormatters => widget.asciiOnly
+      ? [FilteringTextInputFormatter.allow(RegExp(r'[\x20-\x7e]'))]
+      : null;
 
   @override
   void dispose() {
@@ -66,6 +75,13 @@ class _KeyboardSheetState extends State<KeyboardSheet> {
             TextField(
               controller: _controller,
               autofocus: true,
+              // What is typed here is copied to the TV letter by letter: no phone-side
+              // rewriting (autocorrect, curly quotes, long dashes).
+              autocorrect: false,
+              enableSuggestions: false,
+              smartQuotesType: SmartQuotesType.disabled,
+              smartDashesType: SmartDashesType.disabled,
+              inputFormatters: asciiOnlyFormatters,
               textInputAction: TextInputAction.done,
               onChanged: _changed,
               onSubmitted: (_) => widget.onEnter(),

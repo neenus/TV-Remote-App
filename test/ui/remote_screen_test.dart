@@ -171,6 +171,28 @@ void main() {
       expect(find.textContaining('own keyboard'), findsOneWidget);
     });
 
+    testWidgets('the_phone_keyboard_does_not_autocorrect_or_curl_quotes', (tester) async {
+      await tester.pumpWidget(screen(FakeDriver()));
+      await tester.tap(find.byKey(const Key('open-keyboard')));
+      await tester.pumpAndSettle();
+      final field = tester.widget<TextField>(find.byType(TextField));
+      expect(field.autocorrect, isFalse);
+      expect(field.smartQuotesType, SmartQuotesType.disabled);
+      expect(field.smartDashesType, SmartDashesType.disabled);
+    });
+
+    testWidgets('ascii_only_tvs_never_get_characters_they_cannot_type', (tester) async {
+      final d = FakeDriver(
+          capabilities: TvCapabilities(TvKey.values.toSet(), asciiOnlyTyping: true));
+      await tester.pumpWidget(screen(d));
+      await tester.tap(find.byKey(const Key('open-keyboard')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'caf\u00e9\u2019s');
+      await tester.pump();
+      expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, 'cafs');
+      expect(d.typed, ['cafs']);
+    });
+
     testWidgets('no_text_field_warning_when_the_tv_never_announces_them', (tester) async {
       final d = FakeDriver(
           capabilities: TvCapabilities(TvKey.values.toSet(), announcesKeyboard: false));

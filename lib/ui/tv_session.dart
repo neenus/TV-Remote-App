@@ -88,7 +88,8 @@ class _TvSessionState extends ConsumerState<TvSession> {
     } on TvConnectionError catch (e) {
       if (stale()) return;
       // The TV may have a new DHCP address: look for it once before giving up.
-      if (!_refreshed) {
+      // (A TV added by IP can't be re-found by the scan, so don't make the user wait for it.)
+      if (!_refreshed && !_device.id.startsWith('manual-')) {
         _refreshed = true;
         setState(() {
           _status = const Connecting();
@@ -222,6 +223,12 @@ class _TvSessionState extends ConsumerState<TvSession> {
           : status is AwaitingPairing
               ? 'Accept the prompt on your TV'
               : 'Connecting to ${_device.name}…'),
+      if (status is AwaitingPairing && driver?.capabilities.pairingNote != null) ...[
+        const SizedBox(height: 12),
+        Text(driver!.capabilities.pairingNote!,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: AuroraColors.textSecondary, fontSize: 13)),
+      ],
       if (status is AwaitingPairing && !_pinMode && (driver?.capabilities.pairingChoice ?? false)) ...[
         const SizedBox(height: 16),
         TextButton(

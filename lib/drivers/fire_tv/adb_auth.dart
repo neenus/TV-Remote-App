@@ -28,7 +28,15 @@ class AdbKey {
     final d = BigInt.tryParse(parts[1], radix: 16);
     if (n == null || d == null || parts[0].isEmpty || parts[1].isEmpty) return null;
     if (n.bitLength != _modulusBytes * 8 || d <= BigInt.zero || d >= n) return null;
-    return AdbKey(n, d);
+    if (n.isEven) return null; // not a valid RSA modulus (and ADB's key blob needs an odd one)
+    final key = AdbKey(n, d);
+    // A damaged key would make the device show its Allow box on every connection.
+    return key._signsAndVerifies() ? key : null;
+  }
+
+  bool _signsAndVerifies() {
+    final m = BigInt.from(0x1234567);
+    return m.modPow(e, n).modPow(d, n) == m;
   }
 }
 
