@@ -377,4 +377,38 @@ void main() {
       expect(find.text('Searching for TVs on your Wi-Fi…'), findsOneWidget);
     });
   });
+
+  testWidgets('add_dialog_lets_you_pick_samsung', (tester) async {
+    TvDevice? created;
+    await tester.pumpWidget(await app(driver: (d) {
+      created = d;
+      return FakeDriver();
+    }));
+    await tester.pump();
+    await tester.tap(find.text('Add by IP'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Samsung'));
+    await tester.pump();
+    await tester.enterText(find.byType(TextField).first, '10.0.0.8');
+    await tester.tap(find.text('Connect'));
+    await tester.pumpAndSettle();
+    expect(created?.brand, TvBrand.samsung);
+    expect(created?.host, '10.0.0.8');
+    expect(find.byType(RemoteScreen), findsOneWidget);
+  });
+
+  testWidgets('add_dialog_defaults_to_lg', (tester) async {
+    TvDevice? created;
+    await tester.pumpWidget(await app(driver: (d) {
+      created = d;
+      return FakeDriver();
+    }));
+    await tester.pump();
+    await tester.tap(find.text('Add by IP'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, '10.0.0.8');
+    await tester.tap(find.text('Connect'));
+    await tester.pumpAndSettle();
+    expect(created?.brand, TvBrand.lg);
+  });
 }

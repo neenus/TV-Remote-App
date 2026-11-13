@@ -20,6 +20,7 @@ class _AddTvDialogState extends State<_AddTvDialog> {
   final _ip = TextEditingController();
   final _mac = TextEditingController();
   String? _error;
+  TvBrand _brand = TvBrand.lg;
 
   @override
   void dispose() {
@@ -48,13 +49,21 @@ class _AddTvDialogState extends State<_AddTvDialog> {
       }
     }
     Navigator.pop(
-        context, manualDevice(host).copyWith(mac: mac.isEmpty ? null : mac));
+        context, manualDevice(host, brand: _brand).copyWith(mac: mac.isEmpty ? null : mac));
   }
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-        title: const Text('Add LG TV'),
+        title: const Text('Add a TV'),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
+          Wrap(spacing: 8, children: [
+            for (final b in TvBrand.values)
+              ChoiceChip(
+                label: Text(brandLabel(b)),
+                selected: _brand == b,
+                onSelected: (_) => setState(() => _brand = b),
+              ),
+          ]),
           TextField(
               controller: _ip,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),

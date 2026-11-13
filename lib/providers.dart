@@ -9,6 +9,7 @@ import 'discovery/discovery_state.dart';
 import 'discovery/lg_discovery.dart';
 import 'drivers/lg/lg_driver.dart';
 import 'drivers/lg/transport.dart';
+import 'drivers/samsung/samsung_driver.dart';
 import 'storage/tv_repository.dart';
 
 /// Must be overridden in main() with the loaded SharedPreferences instance.
@@ -25,7 +26,7 @@ final discoveredTvsProvider = StreamProvider.autoDispose<DiscoveryState>((ref) a
   final list = <TvDevice>[];
   yield const DiscoveryState([], scanning: true);
   try {
-    await for (final d in discoverLg()) {
+    await for (final d in discoverTvs()) {
       list.add(d);
       yield DiscoveryState(List.of(list), scanning: true);
     }
@@ -37,12 +38,15 @@ final discoveredTvsProvider = StreamProvider.autoDispose<DiscoveryState>((ref) a
 
 /// Re-scan used to find a saved TV whose IP changed.
 final rediscoverProvider = Provider<Stream<TvDevice> Function()>(
-    (ref) => () => discoverLg(timeout: const Duration(seconds: 3)));
+    (ref) => () => discoverTvs(timeout: const Duration(seconds: 3)));
 
 /// Creates a driver for a TV. The session screen owns (and disposes) it.
 final driverFactoryProvider = Provider<TvDriver Function(TvDevice)>((ref) {
   final keys = ref.watch(keyStoreProvider);
-  return (device) => LgDriver(device, keys, WebSocketTransport.new);
+  return (device) => switch (device.brand) {
+        TvBrand.lg => LgDriver(device, keys, WebSocketTransport.new),
+        TvBrand.samsung => SamsungDriver(device, keys, WebSocketTransport.new),
+      };
 });
 
 /// Sends a Wake-on-LAN packet; overridable in tests.

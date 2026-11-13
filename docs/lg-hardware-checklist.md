@@ -1,4 +1,4 @@
-# LG webOS hardware checklist
+# Hardware checklist (LG webOS and Samsung Tizen)
 
 Run on a real LG TV (2018 or newer). Record pass/fail and notes for each line.
 Test on both an Android phone and an iPhone.
@@ -46,3 +46,30 @@ Test on both an Android phone and an iPhone.
 - [ ] Tap to on-screen response feels under about 150 ms. Note any lag.
 
 Report failures with the TV model, webOS version and phone OS.
+
+---
+
+# Samsung (Tizen 2016 or newer)
+
+Unverified on real hardware: the protocol comes from community documentation.
+
+**Pairing**
+- [ ] Add the TV by IP (choose Samsung), or find it in the scan (it should appear within about 4 seconds).
+- [ ] The app shows "Accept the prompt on your TV". The TV shows an "Allow" box for "TV Remote". You must press Allow on the TV's own remote (Samsung has no on-screen code option). If you have no remote, note this; the TV's menu may let you disable the prompt (Device Connection Manager / access notification), which is worth trying.
+- [ ] After allowing, the remote opens. Force-quit and reopen: it reconnects without a new prompt (the token was saved).
+- [ ] Pressing Deny shows a Retry screen; Retry shows the prompt again.
+
+**Keys**
+- [ ] Up, down, left, right, OK, back, home, menu all work.
+- [ ] Volume up/down, mute, channel up/down work; holding volume repeats.
+- [ ] Rewind, play, pause, fast-forward work during playback.
+- [ ] The typing panel does not work on Samsung yet (the app says so); note whether the TV's own on-screen keyboard works with the d-pad.
+
+**Power and wake**
+- [ ] Power turns the TV off.
+- [ ] The TV's MAC is captured automatically after connecting (check: with the TV off, Power should wake it, if the TV's "Power on with mobile" or network standby option is enabled).
+
+**Resilience**
+- [ ] Unplug the TV, then try to connect: a clear error appears within about 10 seconds.
+- [ ] Lock the phone for a minute, unlock, press a key: it reconnects and the key works.
+- [ ] Note the TV model, year and whether the app connected on the secure port or fell back to the plain one.

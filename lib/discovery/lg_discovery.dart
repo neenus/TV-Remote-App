@@ -5,6 +5,12 @@ import 'dart:io';
 import '../core/tv_device.dart';
 
 const _lgSt = 'urn:lge-com:service:webos-second-screen:1';
+const _samsungSt = 'urn:samsung.com:device:RemoteControlReceiver:1';
+
+String brandLabel(TvBrand b) => switch (b) {
+      TvBrand.lg => 'LG',
+      TvBrand.samsung => 'Samsung',
+    };
 
 TvDevice? parseSsdpResponse(String raw) {
   final headers = <String, String>{};
@@ -16,17 +22,28 @@ TvDevice? parseSsdpResponse(String raw) {
   }
   final st = headers['ST'] ?? '';
   final usn = headers['USN'] ?? '';
-  if (!st.contains('lge-com') && !usn.contains('lge-com')) return null;
+  final TvBrand brand;
+  if (st.contains('lge-com') || usn.contains('lge-com')) {
+    brand = TvBrand.lg;
+  } else if (st.contains('samsung.com') || usn.contains('samsung.com')) {
+    brand = TvBrand.samsung;
+  } else {
+    return null;
+  }
   final id = RegExp(r'uuid:([^:]+)').firstMatch(usn)?.group(1);
   final host = Uri.tryParse(headers['LOCATION'] ?? '')?.host;
   if (id == null || host == null || host.isEmpty) return null;
-  return TvDevice(id: id, name: 'LG TV', brand: TvBrand.lg, host: host);
+  return TvDevice(id: id, name: '${brandLabel(brand)} TV', brand: brand, host: host);
 }
 
-TvDevice manualDevice(String host) => TvDevice(
-    id: 'manual-$host', name: 'LG TV ($host)', brand: TvBrand.lg, host: host);
+TvDevice manualDevice(String host, {TvBrand brand = TvBrand.lg}) => TvDevice(
+    id: 'manual-$host',
+    name: '${brandLabel(brand)} TV ($host)',
+    brand: brand,
+    host: host);
 
-Stream<TvDevice> discoverLg(
+/// Looks for LG and Samsung TVs with one multicast socket.
+Stream<TvDevice> discoverTvs(
     {Duration timeout = const Duration(seconds: 4)}) async* {
   final socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
   final controller = StreamController<TvDevice>();
@@ -38,12 +55,14 @@ Stream<TvDevice> discoverLg(
     final d = parseSsdpResponse(utf8.decode(dg.data, allowMalformed: true));
     if (d != null && seen.add(d.id)) controller.add(d);
   });
-  final request = 'M-SEARCH * HTTP/1.1\r\n'
-      'HOST: 239.255.255.250:1900\r\n'
-      'MAN: "ssdp:discover"\r\n'
-      'MX: 2\r\n'
-      'ST: $_lgSt\r\n\r\n';
-  socket.send(utf8.encode(request), InternetAddress('239.255.255.250'), 1900);
+  for (final st in const [_lgSt, _samsungSt]) {
+    final request = 'M-SEARCH * HTTP/1.1\r\n'
+        'HOST: 239.255.255.250:1900\r\n'
+        'MAN: "ssdp:discover"\r\n'
+        'MX: 2\r\n'
+        'ST: $st\r\n\r\n';
+    socket.send(utf8.encode(request), InternetAddress('239.255.255.250'), 1900);
+  }
   Timer(timeout, () {
     socket.close();
     controller.close();

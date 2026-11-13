@@ -34,4 +34,24 @@ void main() {
     expect(d.id, 'manual-10.0.0.7');
     expect(d.host, '10.0.0.7');
   });
+
+  test('parse_samsung_ssdp_response', () {
+    const reply = 'HTTP/1.1 200 OK\r\n'
+        'LOCATION: http://192.168.1.60:7676/smp_7_\r\n'
+        'ST: urn:samsung.com:device:RemoteControlReceiver:1\r\n'
+        'USN: uuid:abcd-9999::urn:samsung.com:device:RemoteControlReceiver:1\r\n\r\n';
+    final d = parseSsdpResponse(reply);
+    expect(d, isNotNull);
+    expect(d!.brand, TvBrand.samsung);
+    expect(d.id, 'abcd-9999');
+    expect(d.host, '192.168.1.60');
+    expect(d.name, 'Samsung TV');
+  });
+
+  test('manual_device_brand_and_name', () {
+    final s = manualDevice('10.0.0.7', brand: TvBrand.samsung);
+    expect(s.brand, TvBrand.samsung);
+    expect(s.name, 'Samsung TV (10.0.0.7)');
+    expect(manualDevice('10.0.0.7').name, 'LG TV (10.0.0.7)');
+  });
 }
