@@ -27,12 +27,22 @@ jobs:
       - run: flutter analyze
       - run: flutter test
 
-      # Release build is signed with the debug key by default, which is fine for
-      # installing on your own phone. It is NOT a Play Store upload build.
-      - run: flutter build apk --release
+      # One APK per CPU type instead of one fat APK containing all of them.
+      # Release builds are signed with the debug key by default, which is fine for
+      # installing on your own phone. They are NOT Play Store upload builds.
+      - run: flutter build apk --release --split-per-abi
+
+      - name: Give the files proper names
+        run: |
+          mkdir dist
+          out=build/app/outputs/flutter-apk
+          cp "$out/app-arm64-v8a-release.apk"   dist/TV-Remote.apk          # almost every phone since ~2017
+          cp "$out/app-armeabi-v7a-release.apk" dist/TV-Remote-32bit.apk    # older 32-bit phones
+          cp "$out/app-x86_64-release.apk"      dist/TV-Remote-x86_64.apk   # emulators
+          ls -la dist
 
       - uses: actions/upload-artifact@v4
         with:
           name: tv-remote-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: dist/*.apk
           if-no-files-found: error
