@@ -1,0 +1,16 @@
+enum TvKey {
+  power,
+  up,
+  down,
+  left,
+  right,
+  ok,
+  back,
+  home,
+  menu,
+  volumeUp,
+  volumeDown,
+  mute,
+  channelUp,
+  channelDown,
+}
