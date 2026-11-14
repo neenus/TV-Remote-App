@@ -2,7 +2,9 @@
 
 A free, open-source universal Wi-Fi remote for smart TVs, for Android and iOS (Flutter). No ads, no tracking, no paywall.
 
-**Status:** early development. LG webOS TVs (2018 or newer) come first; Roku, Samsung and Android/Google TV are planned. Nothing has been verified on real TVs yet; see `docs/lg-hardware-checklist.md`.
+**Supports** (all over Wi-Fi, no IR): LG webOS, Samsung (2013 and older, 2014-2015, and 2016 or newer), Amazon Fire TV, Roku, and Android TV / Google TV (which covers Sony, Philips, TCL, Hisense, Nvidia Shield and more).
+
+**Status:** early development. The protocols are implemented from public documentation and checked against open-source reference libraries where possible, but most have not been verified on real TVs yet; see `docs/lg-hardware-checklist.md` for what to try on each TV.
 
 ## Docs
 - Design: `docs/superpowers/specs/2026-11-13-tv-remote-design.md`

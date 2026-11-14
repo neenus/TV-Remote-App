@@ -200,7 +200,14 @@ class _TvSessionState extends ConsumerState<TvSession> {
         TextField(
           controller: _pinController,
           keyboardType: TextInputType.number,
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          inputFormatters: driver?.capabilities.pinHex ?? false
+              ? [
+                  FilteringTextInputFormatter.allow(RegExp(r'[0-9a-fA-F]')),
+                  LengthLimitingTextInputFormatter(6),
+                  _UpperCaseFormatter(),
+                ]
+              : [FilteringTextInputFormatter.digitsOnly],
+          textCapitalization: TextCapitalization.characters,
           textAlign: TextAlign.center,
           autofocus: true,
           style: const TextStyle(fontSize: 24, letterSpacing: 6),
@@ -236,4 +243,11 @@ class _TvSessionState extends ConsumerState<TvSession> {
       ],
     ]));
   }
+}
+
+/// Turns typed letters into capitals (hex codes are shown that way).
+class _UpperCaseFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) =>
+      newValue.copyWith(text: newValue.text.toUpperCase());
 }

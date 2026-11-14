@@ -109,6 +109,8 @@ void main() {
     expect(brandLabel(TvBrand.samsungLegacy), 'Samsung (2013 or older)');
     expect(brandLabel(TvBrand.fireTv), 'Fire TV');
     expect(brandLabel(TvBrand.roku), 'Roku');
+    expect(brandLabel(TvBrand.androidTv), 'Android TV (Sony, Philips…)');
+    expect(manualDevice('10.0.0.9', brand: TvBrand.androidTv).name, 'Android TV (10.0.0.9)');
     expect(manualDevice('10.0.0.8', brand: TvBrand.fireTv).name, 'Fire TV (10.0.0.8)');
   });
 }

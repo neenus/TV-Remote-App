@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tv_remote/core/tv_device.dart';
 import 'package:tv_remote/drivers/lg/lg_driver.dart';
+import 'package:tv_remote/drivers/android_tv/android_tv_driver.dart';
 import 'package:tv_remote/drivers/fire_tv/fire_tv_driver.dart';
 import 'package:tv_remote/drivers/roku/roku_driver.dart';
 import 'package:tv_remote/drivers/samsung/samsung_driver.dart';
@@ -30,5 +31,7 @@ void main() {
     expect(make(fire), isA<FireTvDriver>());
     const roku = TvDevice(id: 'f', name: 'F', brand: TvBrand.roku, host: 'h');
     expect(make(roku), isA<RokuDriver>());
+    const atv = TvDevice(id: 'g', name: 'G', brand: TvBrand.androidTv, host: 'h');
+    expect(make(atv), isA<AndroidTvDriver>());
   });
 }

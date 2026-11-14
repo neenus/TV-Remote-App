@@ -161,3 +161,39 @@ Built from the ADB protocol and verified against the adb_shell library with test
 **Resilience**
 - [ ] Put the stick to sleep and wake it: the next button press reconnects.
 - [ ] Note any step where the Fire TV or the app shows something unexpected.
+
+---
+
+# Roku (TVs and players)
+
+Built from Roku's External Control Protocol (plain HTTP on port 8060). **Never tried on a real Roku yet.**
+
+**Setup:** on the Roku, Settings > System > Advanced system settings > **Control by mobile apps** should be **Default** or **Permissive** (the app tells you if it is blocked).
+
+- [ ] Add by IP choosing **Roku**, or find it in the TV list (the scan finds Rokus). No pairing and no code.
+- [ ] After connecting, the TV list should stop saying "No MAC address" (read from the Roku automatically).
+- [ ] D-pad, OK, back, home work. Menu sends the * options key. Volume and mute work on a Roku TV (not on a Roku stick/box). Channel up/down work on a Roku TV with a tuner.
+- [ ] Play and pause both toggle play/pause (Roku has one toggle). Rewind and fast-forward work in a video app.
+- [ ] Power turns a Roku TV off/on. With the TV off and a saved MAC, Power can also wake it (Fast TV Start must be on for the network to stay awake).
+- [ ] The Input button is greyed out (not available).
+- [ ] Typing: in a Roku search box open the keyboard icon (top of the remote) and type; backspace and Enter work.
+
+---
+
+# Android TV / Google TV (Sony, Philips 2018 or newer, TCL, Hisense, Nvidia Shield...)
+
+Built from the Android TV Remote protocol v2 (the one Google's own remote app uses), verified against the androidtvremote2 library with test vectors, and the TLS connection tested against a local server. **Never tried on a real TV yet.** This is the choice **Android TV (Sony, Philips…)** in Add by IP. (Fire TV is not Android TV in this sense: use the Fire TV choice.)
+
+**Pairing**
+- [ ] Add by IP choosing **Android TV (Sony, Philips…)**. The first time the app makes a security certificate (a few seconds, "Connecting…").
+- [ ] The app says "Enter the code shown on your TV" and the TV shows a **6-character code** (digits 0-9 and letters A-F). No remote is needed. Type it and tap Pair.
+- [ ] A wrong code shows "That code was not accepted" (often caught immediately, because the first two characters are a checksum).
+- [ ] After pairing the remote opens; close and reopen the app: it connects without asking for a code.
+- [ ] If the TV stops accepting the app (for example after a factory reset): remove the TV (x) and add it again.
+
+**Keys**
+- [ ] D-pad, OK, back, home, menu work. Volume, mute, channel up/down work (the TV's own volume, if the TV controls it).
+- [ ] Input opens the TV's input list. Play, pause, rewind, fast-forward work in a video app.
+- [ ] Power toggles the TV (it may not wake a TV that is fully off: use Wake-on-LAN with its MAC).
+- [ ] Typing is not supported on these TVs yet (the keyboard icon is greyed out).
+- [ ] Leave the remote idle for a minute, then press a key: it reconnects by itself.

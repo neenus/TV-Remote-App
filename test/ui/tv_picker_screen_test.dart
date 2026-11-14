@@ -646,4 +646,54 @@ void main() {
     await tester.pumpAndSettle();
     expect(created?.brand, TvBrand.roku);
   });
+
+  testWidgets('add_dialog_offers_android_tv', (tester) async {
+    TvDevice? created;
+    await tester.pumpWidget(await app(driver: (d) {
+      created = d;
+      return FakeDriver();
+    }));
+    await tester.pump();
+    await tester.tap(find.text('Add by IP'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Android TV (Sony, Philips…)'));
+    await tester.pump();
+    await tester.enterText(find.byType(TextField).first, '10.0.0.9');
+    await tester.tap(find.text('Connect'));
+    await tester.pumpAndSettle();
+    expect(created?.brand, TvBrand.androidTv);
+  });
+
+  testWidgets('a_hex_code_box_accepts_hex_digits_only_and_capitalises', (tester) async {
+    late ScriptedDriver driver;
+    await tester.pumpWidget(await app(
+        savedTvs: [saved],
+        driver: (_) => driver = ScriptedDriver((d) async {
+              d.emit(const AwaitingPin());
+              await Completer<void>().future;
+            }, capabilities: TvCapabilities(TvKey.values.toSet(), pinHex: true))));
+    await tester.pump();
+    await tester.tap(find.text('Saved TV'));
+    await tester.pump();
+    await tester.pump();
+    await tester.enterText(find.byType(TextField), 'a1 b2zz9');
+    await tester.tap(find.text('Pair'));
+    await tester.pump();
+    expect(driver.submittedPins, ['A1B29']);
+  });
+
+  testWidgets('a_hex_code_is_limited_to_six_characters', (tester) async {
+    await tester.pumpWidget(await app(
+        savedTvs: [saved],
+        driver: (_) => ScriptedDriver((d) async {
+              d.emit(const AwaitingPin());
+              await Completer<void>().future;
+            }, capabilities: TvCapabilities(TvKey.values.toSet(), pinHex: true))));
+    await tester.pump();
+    await tester.tap(find.text('Saved TV'));
+    await tester.pump();
+    await tester.pump();
+    await tester.enterText(find.byType(TextField), 'ABCDEF123');
+    expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, 'ABCDEF');
+  });
 }

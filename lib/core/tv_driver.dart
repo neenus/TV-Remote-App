@@ -6,7 +6,8 @@ class TvCapabilities {
       this.pairingChoice = false,
       this.announcesKeyboard = false,
       this.asciiOnlyTyping = false,
-      this.pairingNote});
+      this.pairingNote,
+      this.pinHex = false});
   final Set<TvKey> keys;
 
   /// Whether text typed on the phone can reach the TV (the keyboard panel).
@@ -25,6 +26,9 @@ class TvCapabilities {
 
   /// Extra guidance shown while the user has to confirm something on the TV.
   final String? pairingNote;
+
+  /// The pairing code is hexadecimal (0-9, A-F) and six characters long.
+  final bool pinHex;
   bool supports(TvKey k) => keys.contains(k);
 }
 

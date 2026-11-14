@@ -18,6 +18,7 @@ String brandLabel(TvBrand b) => switch (b) {
       TvBrand.samsungLegacy => 'Samsung (2013 or older)',
       TvBrand.fireTv => 'Fire TV',
       TvBrand.roku => 'Roku',
+      TvBrand.androidTv => 'Android TV (Sony, Philips…)',
     };
 
 /// The brand as it appears in a TV's name.
@@ -26,6 +27,7 @@ String brandName(TvBrand b) => switch (b) {
       TvBrand.samsung || TvBrand.samsungEncrypted || TvBrand.samsungLegacy => 'Samsung',
       TvBrand.fireTv => 'Fire', // names are built as "<brand> TV"
       TvBrand.roku => 'Roku',
+      TvBrand.androidTv => 'Android',
     };
 
 TvDevice? parseSsdpResponse(String raw) {
