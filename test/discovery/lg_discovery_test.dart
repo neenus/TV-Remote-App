@@ -18,10 +18,32 @@ void main() {
     expect(d.name, 'LG TV');
   });
 
-  test('parse_non_lg_response_returns_null', () {
+  test('parse_unsupported_brand_returns_null', () {
+    const sonos = 'HTTP/1.1 200 OK\r\nLOCATION: http://192.168.1.9:1400/xml/device_description.xml\r\n'
+        'ST: urn:schemas-upnp-org:device:ZonePlayer:1\r\nUSN: uuid:RINCON_X::urn:schemas-upnp-org:device:ZonePlayer:1\r\n\r\n';
+    expect(parseSsdpResponse(sonos), isNull);
+  });
+
+  test('parse_roku_response_uses_the_serial_as_the_id', () {
     const roku = 'HTTP/1.1 200 OK\r\nLOCATION: http://192.168.1.9:8060/\r\n'
-        'ST: roku:ecp\r\nUSN: uuid:roku:ecp:X\r\n\r\n';
-    expect(parseSsdpResponse(roku), isNull);
+        'ST: roku:ecp\r\nUSN: uuid:roku:ecp:X00A123456\r\n\r\n';
+    final d = parseSsdpResponse(roku);
+    expect(d?.brand, TvBrand.roku);
+    expect(d?.id, 'roku-X00A123456');
+    expect(d?.host, '192.168.1.9');
+    expect(d?.name, 'Roku TV');
+  });
+
+  test('two_rokus_get_different_ids', () {
+    String reply(String serial) => 'HTTP/1.1 200 OK\r\nLOCATION: http://192.168.1.9:8060/\r\n'
+        'ST: roku:ecp\r\nUSN: uuid:roku:ecp:$serial\r\n\r\n';
+    expect(parseSsdpResponse(reply('A'))?.id, isNot(parseSsdpResponse(reply('B'))?.id));
+  });
+
+  test('a_roku_reply_without_a_serial_is_ignored', () {
+    const reply = 'HTTP/1.1 200 OK\r\nLOCATION: http://192.168.1.9:8060/\r\n'
+        'ST: roku:ecp\r\nUSN: uuid:roku:ecp:\r\n\r\n';
+    expect(parseSsdpResponse(reply), isNull);
   });
 
   test('parse_garbage_returns_null', () {
@@ -86,6 +108,7 @@ void main() {
     expect(brandLabel(TvBrand.samsungEncrypted), 'Samsung (2014-2015)');
     expect(brandLabel(TvBrand.samsungLegacy), 'Samsung (2013 or older)');
     expect(brandLabel(TvBrand.fireTv), 'Fire TV');
+    expect(brandLabel(TvBrand.roku), 'Roku');
     expect(manualDevice('10.0.0.8', brand: TvBrand.fireTv).name, 'Fire TV (10.0.0.8)');
   });
 }

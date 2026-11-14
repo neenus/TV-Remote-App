@@ -10,6 +10,7 @@ import 'discovery/lg_discovery.dart';
 import 'drivers/lg/lg_driver.dart';
 import 'drivers/lg/transport.dart';
 import 'drivers/fire_tv/fire_tv_driver.dart';
+import 'drivers/roku/roku_driver.dart';
 import 'drivers/samsung/samsung_driver.dart';
 import 'drivers/samsung/samsung_encrypted_driver.dart';
 import 'drivers/samsung/samsung_encrypted_http.dart';
@@ -54,6 +55,7 @@ final driverFactoryProvider = Provider<TvDriver Function(TvDevice)>((ref) {
         TvBrand.samsungEncrypted =>
           SamsungEncryptedDriver(device, keys, WebSocketTransport.new, IoSamsungHttp()),
         TvBrand.fireTv => FireTvDriver(device, keys, TcpTransport.new),
+        TvBrand.roku => RokuDriver(device, IoSamsungHttp()),
         TvBrand.samsungLegacy => SamsungLegacyDriver(device, TcpTransport.new),
       };
 });

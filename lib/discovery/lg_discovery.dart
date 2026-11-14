@@ -8,6 +8,7 @@ const _lgSt = 'urn:lge-com:service:webos-second-screen:1';
 const _samsungSt = 'urn:samsung.com:device:RemoteControlReceiver:1';
 // Newer Samsung TVs may not answer the legacy search above but do answer DIAL.
 const _dialSt = 'urn:dial-multiscreen-org:service:dial:1';
+const _rokuSt = 'roku:ecp';
 
 /// Label for choosing a brand (Add-by-IP).
 String brandLabel(TvBrand b) => switch (b) {
@@ -16,6 +17,7 @@ String brandLabel(TvBrand b) => switch (b) {
       TvBrand.samsungEncrypted => 'Samsung (2014-2015)',
       TvBrand.samsungLegacy => 'Samsung (2013 or older)',
       TvBrand.fireTv => 'Fire TV',
+      TvBrand.roku => 'Roku',
     };
 
 /// The brand as it appears in a TV's name.
@@ -23,6 +25,7 @@ String brandName(TvBrand b) => switch (b) {
       TvBrand.lg => 'LG',
       TvBrand.samsung || TvBrand.samsungEncrypted || TvBrand.samsungLegacy => 'Samsung',
       TvBrand.fireTv => 'Fire', // names are built as "<brand> TV"
+      TvBrand.roku => 'Roku',
     };
 
 TvDevice? parseSsdpResponse(String raw) {
@@ -35,6 +38,13 @@ TvDevice? parseSsdpResponse(String raw) {
   }
   final st = headers['ST'] ?? '';
   final usn = headers['USN'] ?? '';
+  if (st.contains('roku:ecp') || usn.contains('roku:ecp')) {
+    // USN is uuid:roku:ecp:<serial>: the serial identifies the device (not the word "roku").
+    final serial = RegExp(r'roku:ecp:([^\s:]+)').firstMatch(usn)?.group(1);
+    final host = Uri.tryParse(headers['LOCATION'] ?? '')?.host;
+    if (serial == null || host == null || host.isEmpty) return null;
+    return TvDevice(id: 'roku-$serial', name: 'Roku TV', brand: TvBrand.roku, host: host);
+  }
   final TvBrand brand;
   if (st.contains('lge-com') || usn.contains('lge-com')) {
     brand = TvBrand.lg;
@@ -72,7 +82,7 @@ Stream<TvDevice> discoverTvs(
     // One TV can answer several searches with different ids: dedupe by address.
     if (d != null && seen.add(d.host)) controller.add(d);
   });
-  for (final st in const [_lgSt, _samsungSt, _dialSt]) {
+  for (final st in const [_lgSt, _samsungSt, _dialSt, _rokuSt]) {
     final request = 'M-SEARCH * HTTP/1.1\r\n'
         'HOST: 239.255.255.250:1900\r\n'
         'MAN: "ssdp:discover"\r\n'

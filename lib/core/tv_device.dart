@@ -1,4 +1,4 @@
-enum TvBrand { lg, samsung, samsungEncrypted, samsungLegacy, fireTv }
+enum TvBrand { lg, samsung, samsungEncrypted, samsungLegacy, fireTv, roku }
 
 class TvDevice {
   const TvDevice({

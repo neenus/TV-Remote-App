@@ -629,4 +629,21 @@ void main() {
       expect((await savedAfter(tester)).single.mac, 'AA:BB:CC:DD:EE:FF');
     });
   });
+
+  testWidgets('add_dialog_offers_roku', (tester) async {
+    TvDevice? created;
+    await tester.pumpWidget(await app(driver: (d) {
+      created = d;
+      return FakeDriver();
+    }));
+    await tester.pump();
+    await tester.tap(find.text('Add by IP'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Roku'));
+    await tester.pump();
+    await tester.enterText(find.byType(TextField).first, '10.0.0.6');
+    await tester.tap(find.text('Connect'));
+    await tester.pumpAndSettle();
+    expect(created?.brand, TvBrand.roku);
+  });
 }
